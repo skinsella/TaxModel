@@ -580,6 +580,350 @@ def print_result(result):
 
 
 # ============================================================
+# INDIVIDUAL TAX CALCULATIONS (2026)
+# ============================================================
+
+@dataclass
+class IncomeTaxParams:
+    """Income tax parameters for individual tax calculation."""
+    standard_rate: float = 0.20
+    higher_rate: float = 0.40
+    single_band: float = 44_000
+    married_one_earner_band: float = 53_000
+    married_two_earner_band: float = 35_000  # max per spouse
+    single_person_credit: float = 2_000
+    married_credit: float = 4_000
+    employee_credit: float = 2_000
+    earned_income_credit: float = 2_000
+    widowed_credit: float = 2_540
+
+
+IT_2026 = IncomeTaxParams()
+
+PRSI_RATE = 0.04
+PRSI_ANNUAL_THRESHOLD = 18_304  # €352/week
+PRSI_CREDIT_MAX = 624  # €12/week, tapers to zero at €22,048
+
+# 2023 individualised gross income by personal status
+# Source: Revenue - Individualised Gross Incomes (2023), Page 3
+# Each entry: (lower, upper, count, total_gross_income_€m)
+INDIVIDUALS_BY_STATUS_2023 = {
+    'single_male': [
+        (0, 10_000, 213_062, 979.83), (10_000, 12_000, 37_172, 410.47),
+        (12_000, 15_000, 78_426, 1_059.12), (15_000, 17_000, 49_852, 790.47),
+        (17_000, 20_000, 53_247, 983.86), (20_000, 25_000, 86_468, 1_948.20),
+        (25_000, 27_000, 35_811, 931.76), (27_000, 30_000, 55_036, 1_568.65),
+        (30_000, 35_000, 88_222, 2_862.58), (35_000, 40_000, 78_638, 2_946.65),
+        (40_000, 50_000, 107_010, 4_765.12), (50_000, 60_000, 61_756, 3_371.84),
+        (60_000, 70_000, 38_669, 2_500.66), (70_000, 75_000, 14_155, 1_025.11),
+        (75_000, 80_000, 11_399, 882.73), (80_000, 90_000, 17_013, 1_440.34),
+        (90_000, 100_000, 11_350, 1_074.16), (100_000, 150_000, 22_367, 2_661.04),
+        (150_000, 200_000, 5_851, 999.41), (200_000, 275_000, 2_885, 664.18),
+        (275_000, 550_000, 2_388, 1_187.22),
+    ],
+    'single_female': [
+        (0, 10_000, 219_330, 999.20), (10_000, 12_000, 41_283, 457.25),
+        (12_000, 15_000, 89_865, 1_217.25), (15_000, 17_000, 59_166, 940.77),
+        (17_000, 20_000, 56_601, 1_045.79), (20_000, 25_000, 87_378, 1_967.74),
+        (25_000, 27_000, 35_839, 931.86), (27_000, 30_000, 52_423, 1_493.01),
+        (30_000, 35_000, 72_955, 2_363.50), (35_000, 40_000, 59_395, 2_223.84),
+        (40_000, 50_000, 90_302, 4_023.99), (50_000, 60_000, 54_224, 2_963.16),
+        (60_000, 70_000, 33_261, 2_147.23), (70_000, 75_000, 11_287, 817.12),
+        (75_000, 80_000, 8_558, 662.33), (80_000, 90_000, 12_171, 1_030.20),
+        (90_000, 100_000, 7_768, 734.68), (100_000, 150_000, 14_356, 1_700.11),
+        (150_000, 200_000, 3_663, 624.30), (200_000, 275_000, 1_824, 420.14),
+        (275_000, 550_000, 1_479, 695.03),
+    ],
+    'married_both': [
+        (0, 10_000, 86_603, 457.09), (10_000, 12_000, 32_919, 367.05),
+        (12_000, 15_000, 136_348, 1_856.21), (15_000, 17_000, 45_108, 720.32),
+        (17_000, 20_000, 59_262, 1_094.91), (20_000, 25_000, 94_666, 2_130.74),
+        (25_000, 27_000, 39_042, 1_015.69), (27_000, 30_000, 60_404, 1_722.54),
+        (30_000, 35_000, 104_644, 3_398.71), (35_000, 40_000, 99_747, 3_740.59),
+        (40_000, 50_000, 168_752, 7_549.30), (50_000, 60_000, 117_965, 6_455.39),
+        (60_000, 70_000, 83_530, 5_404.43), (70_000, 75_000, 30_974, 2_243.08),
+        (75_000, 80_000, 25_427, 1_968.48), (80_000, 90_000, 39_788, 3_370.44),
+        (90_000, 100_000, 27_255, 2_581.36), (100_000, 150_000, 58_485, 6_991.52),
+        (150_000, 200_000, 18_342, 3_137.54), (200_000, 275_000, 10_862, 2_515.21),
+        (275_000, 550_000, 11_701, 6_241.42),
+    ],
+    'married_one': [
+        (0, 10_000, 31_535, 152.03), (10_000, 12_000, 6_967, 77.38),
+        (12_000, 15_000, 21_724, 295.86), (15_000, 17_000, 10_670, 169.60),
+        (17_000, 20_000, 12_843, 238.25), (20_000, 25_000, 25_181, 566.15),
+        (25_000, 27_000, 12_788, 335.06), (27_000, 30_000, 18_608, 528.88),
+        (30_000, 35_000, 27_634, 897.45), (35_000, 40_000, 26_149, 980.09),
+        (40_000, 50_000, 42_366, 1_894.86), (50_000, 60_000, 29_880, 1_636.46),
+        (60_000, 70_000, 21_709, 1_405.72), (70_000, 75_000, 8_496, 615.18),
+        (75_000, 80_000, 7_059, 546.78), (80_000, 90_000, 11_727, 994.19),
+        (90_000, 100_000, 8_361, 792.43), (100_000, 150_000, 20_487, 2_465.09),
+        (150_000, 200_000, 7_383, 1_266.61), (200_000, 275_000, 4_843, 1_125.55),
+        (275_000, 550_000, 5_859, 3_413.74),
+    ],
+    'widower': [
+        (0, 10_000, 2_414, 12.02), (10_000, 12_000, 969, 10.87),
+        (12_000, 15_000, 4_802, 65.68), (15_000, 17_000, 5_491, 87.26),
+        (17_000, 20_000, 3_682, 67.80), (20_000, 25_000, 4_608, 103.02),
+        (25_000, 27_000, 1_400, 36.40), (27_000, 30_000, 1_985, 56.58),
+        (30_000, 35_000, 3_020, 98.13), (35_000, 40_000, 2_730, 102.21),
+        (40_000, 50_000, 4_330, 194.43), (50_000, 60_000, 3_343, 182.60),
+        (60_000, 70_000, 1_950, 125.97), (70_000, 75_000, 732, 52.95),
+        (75_000, 80_000, 531, 41.08), (80_000, 90_000, 754, 63.95),
+        (90_000, 100_000, 522, 49.51), (100_000, 150_000, 1_109, 132.38),
+        (150_000, 200_000, 328, 56.23), (200_000, 275_000, 187, 43.21),
+        (275_000, 550_000, 238, 143.94),
+    ],
+    'widow': [
+        (0, 10_000, 4_446, 22.66), (10_000, 12_000, 3_395, 38.28),
+        (12_000, 15_000, 12_316, 169.33), (15_000, 17_000, 17_447, 277.21),
+        (17_000, 20_000, 9_580, 176.44), (20_000, 25_000, 12_254, 274.48),
+        (25_000, 27_000, 4_211, 109.37), (27_000, 30_000, 5_335, 151.85),
+        (30_000, 35_000, 7_700, 249.52), (35_000, 40_000, 5_974, 223.40),
+        (40_000, 50_000, 8_081, 360.61), (50_000, 60_000, 5_387, 294.66),
+        (60_000, 70_000, 3_141, 202.48), (70_000, 75_000, 1_098, 79.49),
+        (75_000, 80_000, 868, 67.25), (80_000, 90_000, 1_139, 96.45),
+        (90_000, 100_000, 720, 68.16), (100_000, 150_000, 1_263, 149.46),
+        (150_000, 200_000, 345, 59.11), (200_000, 275_000, 197, 45.74),
+        (275_000, 550_000, 177, 106.97),
+    ],
+}
+
+# Map status keys to tax calculation status
+_STATUS_TAX_MAP = {
+    'single_male': 'single',
+    'single_female': 'single',
+    'married_both': 'married_two_earner',
+    'married_one': 'married_one_earner',
+    'widower': 'widowed',
+    'widow': 'widowed',
+}
+
+
+def calc_individual_it(gross, status='single', params=None, employment='paye'):
+    """
+    Calculate income tax for an individual.
+
+    status: 'single', 'married_one_earner', 'married_two_earner', 'widowed'
+    employment: 'paye' or 'self_employed'
+    """
+    if params is None:
+        params = IT_2026
+
+    # Standard rate band
+    bands = {
+        'single': params.single_band,
+        'married_one_earner': params.married_one_earner_band,
+        'married_two_earner': params.married_two_earner_band,
+        'widowed': params.single_band,
+    }
+    band = bands.get(status, params.single_band)
+
+    # Gross tax
+    standard_portion = min(gross, band)
+    higher_portion = max(gross - band, 0)
+    gross_tax = standard_portion * params.standard_rate + higher_portion * params.higher_rate
+
+    # Credits
+    if status == 'single':
+        credits = params.single_person_credit
+    elif status == 'married_one_earner':
+        credits = params.married_credit
+    elif status == 'married_two_earner':
+        credits = params.married_credit / 2  # split between spouses
+    elif status == 'widowed':
+        credits = params.widowed_credit
+    else:
+        credits = params.single_person_credit
+
+    if employment == 'paye':
+        credits += params.employee_credit
+    else:
+        credits += params.earned_income_credit
+
+    return max(gross_tax - credits, 0)
+
+
+def calc_individual_usc(gross, params=None):
+    """Calculate USC for an individual (scalar version)."""
+    if params is None:
+        params = USC_2026
+
+    if gross <= params.exemption_threshold:
+        return 0.0
+
+    b1 = min(gross, params.band1_limit) * params.band1_rate
+    b2 = max(min(gross, params.band2_upper) - params.band1_limit, 0) * params.band2_rate
+    b3 = max(min(gross, params.band3_upper) - params.band2_upper, 0) * params.band3_rate
+    b4 = max(gross - params.band3_upper, 0) * params.band4_rate
+    return b1 + b2 + b3 + b4
+
+
+def calc_individual_prsi(gross):
+    """
+    Calculate employee PRSI (Class A, 4%).
+
+    Below €18,304/year: no PRSI.
+    Above: 4% on all earnings, with tapered PRSI credit up to €22,048.
+    """
+    if gross <= PRSI_ANNUAL_THRESHOLD:
+        return 0.0
+
+    prsi_gross = gross * PRSI_RATE
+    credit = max(0, PRSI_CREDIT_MAX - (gross - PRSI_ANNUAL_THRESHOLD) / 6)
+    return max(prsi_gross - credit, 0)
+
+
+def calc_take_home(gross, status='single', employment='paye',
+                   it_params=None, usc_params=None):
+    """
+    Calculate net take-home pay with full breakdown.
+
+    Returns dict with gross, all deductions, net pay, and effective rate.
+    """
+    it = calc_individual_it(gross, status, it_params, employment)
+    usc = calc_individual_usc(gross, usc_params)
+    prsi = calc_individual_prsi(gross)
+    total_ded = it + usc + prsi
+    net = gross - total_ded
+
+    return {
+        'gross': gross,
+        'income_tax': round(it, 2),
+        'usc': round(usc, 2),
+        'prsi': round(prsi, 2),
+        'total_deductions': round(total_ded, 2),
+        'net_pay': round(net, 2),
+        'effective_rate': round(total_ded / gross * 100, 1) if gross > 0 else 0,
+        'marginal_rate': _marginal_rate(gross, status, it_params, usc_params),
+    }
+
+
+def _marginal_rate(gross, status='single', it_params=None, usc_params=None):
+    """Calculate marginal tax rate at a given income level.
+
+    Uses €100 delta to smooth out cliff edges (e.g. USC exemption threshold).
+    """
+    delta = 100.0
+    base = calc_individual_it(gross, status, it_params) + \
+           calc_individual_usc(gross, usc_params) + \
+           calc_individual_prsi(gross)
+    higher = calc_individual_it(gross + delta, status, it_params) + \
+             calc_individual_usc(gross + delta, usc_params) + \
+             calc_individual_prsi(gross + delta)
+    return round((higher - base) / delta * 100, 1)
+
+
+def distributional_analysis(changes):
+    """
+    Calculate per-person tax savings by income band from a package of changes.
+
+    Uses 2023 individual data by status, scaled to 2026 income levels.
+
+    changes: same format as cost_package() — list of change dicts.
+
+    Returns list of dicts: band label, count, avg saving, total saving.
+    """
+    # Build counterfactual parameters from changes
+    new_it = IncomeTaxParams()
+    new_usc = USCParams()
+
+    for c in changes:
+        if c['type'] == 'it_band':
+            new_it.single_band += c['increase']
+            new_it.married_one_earner_band += c['increase']
+            new_it.married_two_earner_band += c['increase']
+        elif c['type'] == 'it_rate':
+            if c['rate'] == '20':
+                new_it.standard_rate += c['change_pp'] / 100
+            elif c['rate'] == '40':
+                new_it.higher_rate += c['change_pp'] / 100
+        elif c['type'] == 'credit':
+            credit_attr_map = {
+                'single_person': 'single_person_credit',
+                'married': 'married_credit',
+                'employee': 'employee_credit',
+                'earned_income': 'earned_income_credit',
+                'home_carer': None,  # not modelled per-individual
+            }
+            attr = credit_attr_map.get(c['credit'])
+            if attr:
+                setattr(new_it, attr, getattr(new_it, attr) + c['amount'])
+                # Also increase widowed credit when single_person changes
+                if c['credit'] == 'single_person':
+                    new_it.widowed_credit += c['amount']
+        elif c['type'] == 'usc_rate':
+            band_attr = {1: 'band1_rate', 2: 'band2_rate',
+                         3: 'band3_rate', 4: 'band4_rate'}
+            setattr(new_usc, band_attr[c['band']], c['new_rate'])
+        elif c['type'] == 'usc_band':
+            if c['band'] == 'exemption':
+                new_usc.exemption_threshold += c['amount']
+            elif c['band'] == '0.5%_upper':
+                new_usc.band1_limit += c['amount']
+            elif c['band'] in ('2%_upper', '2%_both'):
+                new_usc.band2_upper += c['amount']
+            elif c['band'] == '3%':
+                new_usc.band3_upper += c['amount']
+            elif c['band'] == '8%_lower':
+                new_usc.band3_upper += c['amount']
+
+    base_it = IT_2026
+    base_usc = USC_2026
+
+    # Income growth factor 2023 → 2026
+    growth = 185_410 / 154_820
+
+    n_bands = len(INDIVIDUALS_BY_STATUS_2023['single_male'])
+    results = []
+
+    for i in range(n_bands):
+        lower, upper = INDIVIDUALS_BY_STATUS_2023['single_male'][i][:2]
+        total_saving = 0.0
+        total_count = 0
+
+        for status_key, tax_status in _STATUS_TAX_MAP.items():
+            row = INDIVIDUALS_BY_STATUS_2023[status_key][i]
+            count = row[2]
+            income_m = row[3]
+            if count == 0:
+                continue
+
+            avg_income = (income_m * 1e6 / count) * growth
+
+            # Current tax (IT + USC only — PRSI doesn't change)
+            it_curr = calc_individual_it(avg_income, tax_status, base_it)
+            usc_curr = calc_individual_usc(avg_income, base_usc)
+
+            # New tax
+            it_new = calc_individual_it(avg_income, tax_status, new_it)
+            usc_new = calc_individual_usc(avg_income, new_usc)
+
+            saving = (it_curr + usc_curr) - (it_new + usc_new)
+            total_saving += saving * count
+            total_count += count
+
+        avg_saving = total_saving / total_count if total_count > 0 else 0
+
+        if upper >= 550_000:
+            label = f"€{lower // 1000}k+"
+        elif lower >= 100_000:
+            label = f"€{lower // 1000}k–€{upper // 1000}k"
+        else:
+            label = f"€{lower // 1000}k–€{upper // 1000}k"
+
+        results.append({
+            'band': label,
+            'lower': lower,
+            'upper': upper,
+            'count': total_count,
+            'avg_saving': round(avg_saving, 0),
+            'total_saving_€m': round(total_saving / 1e6, 1),
+        })
+
+    return results
+
+
+# ============================================================
 # VALIDATION
 # ============================================================
 

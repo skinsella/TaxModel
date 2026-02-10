@@ -15,6 +15,8 @@ from tax_model import (
     USCParams, cost_usc_change, cost_it_rate_change, cost_it_band_change,
     cost_it_band_change_detail, cost_credit_change, cost_usc_band_change,
     cost_indexation, cost_package, TAXPAYER_UNITS_2026,
+    calc_take_home, distributional_analysis, IncomeTaxParams, IT_2026,
+    USC_2026, calc_individual_it, calc_individual_usc, calc_individual_prsi,
 )
 
 # ── Page config ──────────────────────────────────────────────
@@ -68,8 +70,9 @@ st.markdown("Build a budget package and see the Exchequer cost instantly. "
 
 # ── Tabs ─────────────────────────────────────────────────────
 
-tab_pkg, tab_usc, tab_it, tab_credits, tab_index, tab_dist = st.tabs([
-    "📦 Package Builder",
+tab_pkg, tab_take_home, tab_usc, tab_it, tab_credits, tab_index, tab_dist = st.tabs([
+    "Package Builder",
+    "Take-Home Calculator",
     "USC Rates & Bands",
     "Income Tax",
     "Tax Credits",
@@ -270,13 +273,223 @@ with tab_pkg:
         ])
         st.bar_chart(chart_df.set_index('Measure'), horizontal=True)
 
+        # ── Distributional Analysis ──────────────────────────────
+        st.divider()
+        st.subheader("Who Benefits? — Distributional Analysis")
+        st.markdown("Average annual saving per person, by gross income band. "
+                     "Based on 2023 individual data scaled to 2026 income levels.")
+
+        dist_results = distributional_analysis(changes)
+
+        # Filter to bands with non-zero savings
+        dist_df = pd.DataFrame(dist_results)
+        dist_df = dist_df[dist_df['avg_saving'] != 0]
+
+        if not dist_df.empty:
+            dc1, dc2 = st.columns([2, 1])
+            with dc1:
+                chart_data = dist_df[['band', 'avg_saving']].copy()
+                chart_data.columns = ['Income Band', 'Avg Saving (€/year)']
+                st.bar_chart(chart_data.set_index('Income Band'))
+
+            with dc2:
+                st.markdown("**Per-person savings by income band**")
+                display_df = dist_df[['band', 'count', 'avg_saving', 'total_saving_€m']].copy()
+                display_df.columns = ['Income Band', 'Individuals', 'Avg Saving (€)', 'Total (€m)']
+                display_df['Individuals'] = display_df['Individuals'].apply(lambda x: f"{x:,.0f}")
+                display_df['Avg Saving (€)'] = display_df['Avg Saving (€)'].apply(lambda x: f"€{x:,.0f}")
+                display_df['Total (€m)'] = display_df['Total (€m)'].apply(lambda x: f"€{x:,.1f}m")
+                st.dataframe(display_df, hide_index=True, use_container_width=True,
+                             height=min(len(display_df) * 35 + 38, 700))
+
+            # Summary metrics
+            total_dist_cost = dist_df['total_saving_€m'].sum()
+            max_band = dist_df.loc[dist_df['avg_saving'].idxmax()]
+            st.markdown(f"**Largest per-person benefit:** {max_band['band']} "
+                        f"(€{max_band['avg_saving']:,.0f}/year)")
+        else:
+            st.info("No distributional impact for the selected measures.")
+
     else:
         st.info("Select measures above to build a budget package. "
                 "The cost will appear here.")
 
 
 # ==============================================================
-# TAB 2: USC EXPLORER
+# TAB 2: TAKE-HOME CALCULATOR
+# ==============================================================
+
+with tab_take_home:
+    st.header("Net Take-Home Pay Calculator")
+    st.markdown("Calculate your net pay under current 2026 parameters, "
+                "or compare current vs proposed changes.")
+
+    th_col1, th_col2 = st.columns(2)
+
+    with th_col1:
+        st.subheader("Your Details")
+        gross_salary = st.number_input("Annual gross salary (€)", 0, 1_000_000,
+                                        50_000, 1_000, key="th_gross")
+        th_status = st.selectbox("Filing status", [
+            'Single', 'Married (one earner)', 'Married (two earners)', 'Widowed',
+        ], key="th_status")
+        th_employment = st.selectbox("Employment type", ['PAYE', 'Self-employed'],
+                                      key="th_employment")
+
+        status_map = {
+            'Single': 'single',
+            'Married (one earner)': 'married_one_earner',
+            'Married (two earners)': 'married_two_earner',
+            'Widowed': 'widowed',
+        }
+        emp_map = {'PAYE': 'paye', 'Self-employed': 'self_employed'}
+
+    with th_col2:
+        st.subheader("Proposed Changes (optional)")
+        st.markdown("Adjust parameters to compare current vs proposed take-home.")
+
+        th_band_chg = st.number_input("Standard rate band increase (€)",
+                                       0, 10_000, 0, 500, key="th_band_chg")
+        th_credit_chg = st.number_input("Personal credit increase (€)",
+                                         0, 1000, 0, 50, key="th_credit_chg")
+        th_emp_credit_chg = st.number_input("Employee/Earned Income credit increase (€)",
+                                             0, 1000, 0, 50, key="th_emp_credit_chg")
+        th_usc3_new = st.slider("USC 3% band rate (%)", 0.0, 4.0, 3.0, 0.25,
+                                 key="th_usc3")
+
+    st.divider()
+
+    if gross_salary > 0:
+        status_val = status_map[th_status]
+        emp_val = emp_map[th_employment]
+
+        # Current
+        current = calc_take_home(gross_salary, status_val, emp_val)
+
+        # Build proposed params
+        has_changes = (th_band_chg > 0 or th_credit_chg > 0 or
+                       th_emp_credit_chg > 0 or th_usc3_new != 3.0)
+
+        proposed = None
+        if has_changes:
+            prop_it = IncomeTaxParams()
+            prop_it.single_band += th_band_chg
+            prop_it.married_one_earner_band += th_band_chg
+            prop_it.married_two_earner_band += th_band_chg
+            prop_it.single_person_credit += th_credit_chg
+            prop_it.married_credit += th_credit_chg * 2
+            prop_it.widowed_credit += th_credit_chg
+            if emp_val == 'paye':
+                prop_it.employee_credit += th_emp_credit_chg
+            else:
+                prop_it.earned_income_credit += th_emp_credit_chg
+
+            prop_usc = USCParams()
+            prop_usc.band3_rate = th_usc3_new / 100
+
+            proposed = calc_take_home(gross_salary, status_val, emp_val,
+                                       prop_it, prop_usc)
+
+        # Display
+        if proposed:
+            r1, r2, r3 = st.columns(3)
+            with r1:
+                st.markdown("### Current (2026)")
+            with r2:
+                st.markdown("### Proposed")
+            with r3:
+                st.markdown("### Difference")
+
+            rows = [
+                ('Gross Income', 'gross'),
+                ('Income Tax', 'income_tax'),
+                ('USC', 'usc'),
+                ('PRSI', 'prsi'),
+                ('Total Deductions', 'total_deductions'),
+                ('Net Take-Home', 'net_pay'),
+            ]
+            compare_rows = []
+            for label, key in rows:
+                curr_val = current[key]
+                prop_val = proposed[key]
+                diff = prop_val - curr_val
+                compare_rows.append({
+                    'Item': label,
+                    'Current': f"€{curr_val:,.2f}",
+                    'Proposed': f"€{prop_val:,.2f}",
+                    'Change': f"€{diff:+,.2f}",
+                })
+            compare_rows.append({
+                'Item': 'Effective Rate',
+                'Current': f"{current['effective_rate']}%",
+                'Proposed': f"{proposed['effective_rate']}%",
+                'Change': f"{proposed['effective_rate'] - current['effective_rate']:+.1f}pp",
+            })
+            compare_rows.append({
+                'Item': 'Marginal Rate',
+                'Current': f"{current['marginal_rate']}%",
+                'Proposed': f"{proposed['marginal_rate']}%",
+                'Change': f"{proposed['marginal_rate'] - current['marginal_rate']:+.1f}pp",
+            })
+            st.dataframe(pd.DataFrame(compare_rows), hide_index=True,
+                         use_container_width=True)
+
+            saving = proposed['net_pay'] - current['net_pay']
+            if saving > 0:
+                st.success(f"You would save **€{saving:,.2f}/year** "
+                           f"(€{saving/12:,.2f}/month) under the proposed changes.")
+            elif saving < 0:
+                st.warning(f"You would pay **€{abs(saving):,.2f}/year** more "
+                           f"under the proposed changes.")
+        else:
+            # Just show current payslip
+            st.subheader("Your 2026 Payslip")
+
+            m1, m2, m3, m4 = st.columns(4)
+            with m1:
+                st.metric("Net Take-Home", f"€{current['net_pay']:,.0f}")
+            with m2:
+                st.metric("Monthly Net", f"€{current['net_pay']/12:,.0f}")
+            with m3:
+                st.metric("Effective Rate", f"{current['effective_rate']}%")
+            with m4:
+                st.metric("Marginal Rate", f"{current['marginal_rate']}%")
+
+            payslip_rows = [
+                {'Item': 'Gross Income', 'Annual': f"€{current['gross']:,.2f}",
+                 'Monthly': f"€{current['gross']/12:,.2f}"},
+                {'Item': 'Income Tax', 'Annual': f"-€{current['income_tax']:,.2f}",
+                 'Monthly': f"-€{current['income_tax']/12:,.2f}"},
+                {'Item': 'USC', 'Annual': f"-€{current['usc']:,.2f}",
+                 'Monthly': f"-€{current['usc']/12:,.2f}"},
+                {'Item': 'PRSI', 'Annual': f"-€{current['prsi']:,.2f}",
+                 'Monthly': f"-€{current['prsi']/12:,.2f}"},
+                {'Item': 'Total Deductions', 'Annual': f"-€{current['total_deductions']:,.2f}",
+                 'Monthly': f"-€{current['total_deductions']/12:,.2f}"},
+                {'Item': 'Net Take-Home', 'Annual': f"€{current['net_pay']:,.2f}",
+                 'Monthly': f"€{current['net_pay']/12:,.2f}"},
+            ]
+            st.dataframe(pd.DataFrame(payslip_rows), hide_index=True,
+                         use_container_width=True)
+
+        # Effective rate chart across income levels
+        st.divider()
+        st.subheader("Effective Tax Rate by Income")
+        incomes = list(range(10_000, 200_001, 5_000))
+        rate_rows = []
+        for inc in incomes:
+            th = calc_take_home(inc, status_val, emp_val)
+            row = {'Income': inc, 'Current': th['effective_rate']}
+            if has_changes:
+                th_p = calc_take_home(inc, status_val, emp_val, prop_it, prop_usc)
+                row['Proposed'] = th_p['effective_rate']
+            rate_rows.append(row)
+        rate_df = pd.DataFrame(rate_rows).set_index('Income')
+        st.line_chart(rate_df)
+
+
+# ==============================================================
+# TAB 3: USC EXPLORER
 # ==============================================================
 
 with tab_usc:
