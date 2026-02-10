@@ -95,18 +95,6 @@ class USCParams:
     band4_rate: float = 0.08            # 8%
 
 
-# 2024 parameters (base for pre-budget 2025 costings)
-USC_2024 = USCParams(
-    band1_limit=12_012, band2_upper=25_760, band3_upper=70_044,
-    band1_rate=0.005, band2_rate=0.02, band3_rate=0.04, band4_rate=0.08,
-)
-
-# 2025 parameters
-USC_2025 = USCParams(
-    band1_limit=12_012, band2_upper=27_382, band3_upper=70_044,
-    band1_rate=0.005, band2_rate=0.02, band3_rate=0.03, band4_rate=0.08,
-)
-
 # 2026 parameters (current)
 USC_2026 = USCParams(
     band1_limit=12_012, band2_upper=28_700, band3_upper=70_044,
@@ -122,9 +110,8 @@ def build_synthetic_population(dist_data, n_points=500):
     """
     Build a synthetic population from grouped income distribution.
 
-    Within each band, distributes individuals using the actual average
-    income (from total income / count) as the distribution centre.
-    Uses a triangular-like spread within the band bounds.
+    Within each band, distributes individuals uniformly and scales to
+    match the actual average income (from total income / count).
 
     Returns: (incomes array, weights array)
     """
@@ -220,8 +207,7 @@ def cost_usc_change(baseline, counterfactual, dist_data=None,
         # Derived from: 0.5%→0% (180/209), 2%→1% (455/485),
         #               3%→2% (482/579), 8%→7% (360/406)
         # These correct for reduced-rate USC, surcharge, and data differences.
-        cal = _calibrated_usc_cost(incomes, weights, baseline, counterfactual)
-        cost = cal
+        cost = _calibrated_usc_cost(incomes, weights, baseline, counterfactual)
     else:
         cost = raw_cost
 
@@ -465,7 +451,7 @@ def cost_indexation(pct):
         'USC bands and exemption limits': (29, 33),
     }
 
-    scale = pct / 1.0
+    scale = pct
     results = {}
     for desc, (fy, full) in components.items():
         results[desc] = {

@@ -9,7 +9,6 @@ Run with:
 """
 
 import streamlit as st
-import numpy as np
 import pandas as pd
 from tax_model import (
     USCParams, cost_usc_change, cost_it_rate_change, cost_it_band_change,
@@ -576,7 +575,7 @@ with tab_usc:
 
 
 # ==============================================================
-# TAB 3: INCOME TAX
+# TAB 4: INCOME TAX
 # ==============================================================
 
 with tab_it:
