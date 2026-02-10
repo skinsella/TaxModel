@@ -164,31 +164,35 @@ with tab_pkg:
 
         do_usc1 = st.checkbox("Change 0.5% USC rate", key="pkg_usc1")
         if do_usc1:
-            usc1_new = st.slider("New 0.5% band rate (%)", 0.0, 0.5, 0.0, 0.1,
+            usc1_new = st.slider("New 0.5% band rate (%)", 0.0, 0.5, 0.5, 0.1,
                                  key="pkg_usc1_val")
-            changes.append({'type': 'usc_rate', 'band': 1,
-                            'new_rate': usc1_new / 100})
+            if usc1_new != 0.5:
+                changes.append({'type': 'usc_rate', 'band': 1,
+                                'new_rate': usc1_new / 100})
 
         do_usc2 = st.checkbox("Change 2% USC rate", key="pkg_usc2")
         if do_usc2:
-            usc2_new = st.slider("New 2% band rate (%)", 0.0, 3.0, 1.0, 0.25,
+            usc2_new = st.slider("New 2% band rate (%)", 0.0, 3.0, 2.0, 0.25,
                                  key="pkg_usc2_val")
-            changes.append({'type': 'usc_rate', 'band': 2,
-                            'new_rate': usc2_new / 100})
+            if usc2_new != 2.0:
+                changes.append({'type': 'usc_rate', 'band': 2,
+                                'new_rate': usc2_new / 100})
 
         do_usc3 = st.checkbox("Change 3% USC rate", key="pkg_usc3")
         if do_usc3:
-            usc3_new = st.slider("New 3% band rate (%)", 0.0, 4.0, 2.0, 0.25,
+            usc3_new = st.slider("New 3% band rate (%)", 0.0, 4.0, 3.0, 0.25,
                                  key="pkg_usc3_val")
-            changes.append({'type': 'usc_rate', 'band': 3,
-                            'new_rate': usc3_new / 100})
+            if usc3_new != 3.0:
+                changes.append({'type': 'usc_rate', 'band': 3,
+                                'new_rate': usc3_new / 100})
 
         do_usc4 = st.checkbox("Change 8% USC rate", key="pkg_usc4")
         if do_usc4:
-            usc4_new = st.slider("New 8% band rate (%)", 4.0, 10.0, 7.0, 0.5,
+            usc4_new = st.slider("New 8% band rate (%)", 4.0, 10.0, 8.0, 0.5,
                                  key="pkg_usc4_val")
-            changes.append({'type': 'usc_rate', 'band': 4,
-                            'new_rate': usc4_new / 100})
+            if usc4_new != 8.0:
+                changes.append({'type': 'usc_rate', 'band': 4,
+                                'new_rate': usc4_new / 100})
 
         st.divider()
         st.subheader("USC Bands")
@@ -277,7 +281,9 @@ with tab_pkg:
         st.divider()
         st.subheader("Who Benefits? — Distributional Analysis")
         st.markdown("Average annual saving per person, by gross income band. "
-                     "Based on 2023 individual data scaled to 2026 income levels.")
+                     "Based on 2023 individual data (3.95M individuals) scaled to 2026 income levels. "
+                     "Note: aggregate totals differ from the Ready Reckoner costs above, which use "
+                     "taxpayer units (3.49M) and Revenue's calibrated model.")
 
         dist_results = distributional_analysis(changes)
 
@@ -302,8 +308,6 @@ with tab_pkg:
                 st.dataframe(display_df, hide_index=True, use_container_width=True,
                              height=min(len(display_df) * 35 + 38, 700))
 
-            # Summary metrics
-            total_dist_cost = dist_df['total_saving_€m'].sum()
             max_band = dist_df.loc[dist_df['avg_saving'].idxmax()]
             st.markdown(f"**Largest per-person benefit:** {max_band['band']} "
                         f"(€{max_band['avg_saving']:,.0f}/year)")
@@ -597,7 +601,7 @@ with tab_it:
         rate_chg = st.slider("Change (pp)", -5.0, 5.0, -1.0, 0.5, key="it_rate_chg")
         if rate_chg != 0:
             r = cost_it_rate_change(rate_sel.replace('%', ''), rate_chg)
-            label = "Cost" if r['full_year_€m'] < 0 else "Yield"
+            label = "Cost" if r['full_year_€m'] > 0 else "Yield"
             st.metric(f"Full Year {label}", f"€{abs(r['full_year_€m']):,.0f}m")
             st.metric("First Year", f"€{abs(r['first_year_€m']):,.0f}m")
 

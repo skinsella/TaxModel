@@ -18,8 +18,7 @@ Run directly for validation and examples:
 """
 
 import numpy as np
-from dataclasses import dataclass, field
-from copy import deepcopy
+from dataclasses import dataclass
 
 # ============================================================
 # DATA: 2023 Individualised Gross Income (All Taxpayers)
@@ -285,28 +284,33 @@ def cost_it_rate_change(rate, change_pp):
     change_pp: percentage points change (negative = cut, positive = increase)
 
     Returns: dict with first_year and full_year in €m
-    Negative result = costs exchequer; positive = raises revenue
+    Positive = costs exchequer (cut), negative = yields revenue (increase).
+    Sign convention matches all other cost functions.
     """
+    # RR data: cost of a 1pp CUT (positive = costs exchequer)
     costs_per_1pp = {
-        '20': {'first_year': 936, 'full_year': 1_070},  # cost of 1pp cut
+        '20': {'first_year': 936, 'full_year': 1_070},
         '40': {'first_year': 482, 'full_year': 567},
     }
+    # RR data: yield of a 1pp INCREASE (positive = yields for exchequer)
     yields_per_1pp = {
-        '20': {'first_year': 948, 'full_year': 1_085},  # yield of 1pp increase
+        '20': {'first_year': 948, 'full_year': 1_085},
         '40': {'first_year': 482, 'full_year': 567},
     }
 
     if change_pp < 0:
+        # Cut: costs the exchequer → positive result
         ref = costs_per_1pp[rate]
         return {
-            'first_year_€m': round(change_pp * ref['first_year'], 0),
-            'full_year_€m': round(change_pp * ref['full_year'], 0),
+            'first_year_€m': round(abs(change_pp) * ref['first_year'], 0),
+            'full_year_€m': round(abs(change_pp) * ref['full_year'], 0),
         }
     else:
+        # Increase: yields for exchequer → negative result
         ref = yields_per_1pp[rate]
         return {
-            'first_year_€m': round(change_pp * ref['first_year'], 0),
-            'full_year_€m': round(change_pp * ref['full_year'], 0),
+            'first_year_€m': round(-change_pp * ref['first_year'], 0),
+            'full_year_€m': round(-change_pp * ref['full_year'], 0),
         }
 
 
@@ -350,11 +354,16 @@ def cost_it_band_change_detail(increase):
         a = [p[0] for p in pts]
         f = [p[1] for p in pts]
         g = [p[2] for p in pts]
-        return float(np.interp(inc, a, f)), float(np.interp(inc, a, g))
+        if inc <= a[-1]:
+            return float(np.interp(inc, a, f)), float(np.interp(inc, a, g))
+        # Extrapolate from last two points
+        sf = (f[-1] - f[-2]) / (a[-1] - a[-2])
+        sg = (g[-1] - g[-2]) / (a[-1] - a[-2])
+        return f[-1] + sf * (inc - a[-1]), g[-1] + sg * (inc - a[-1])
 
-    s_fy, s_full = interp(single_pts, min(increase, 1500))
-    m1_fy, m1_full = interp(married_one_pts, min(increase, 1500))
-    m2_fy, m2_full = interp(married_two_pts, min(increase, 1500))
+    s_fy, s_full = interp(single_pts, increase)
+    m1_fy, m1_full = interp(married_one_pts, increase)
+    m2_fy, m2_full = interp(married_two_pts, increase)
 
     return {
         'single': {'first_year_€m': round(s_fy, 1), 'full_year_€m': round(s_full, 1)},
@@ -426,8 +435,15 @@ def cost_usc_band_change(band, amount):
     fy_vals = [p[1] for p in pts]
     full_vals = [p[2] for p in pts]
 
-    fy = float(np.interp(amount, amounts, fy_vals))
-    full = float(np.interp(amount, amounts, full_vals))
+    if amount <= amounts[-1]:
+        fy = float(np.interp(amount, amounts, fy_vals))
+        full = float(np.interp(amount, amounts, full_vals))
+    else:
+        # Linear extrapolation from last two data points
+        slope_fy = (fy_vals[-1] - fy_vals[-2]) / (amounts[-1] - amounts[-2])
+        slope_full = (full_vals[-1] - full_vals[-2]) / (amounts[-1] - amounts[-2])
+        fy = fy_vals[-1] + slope_fy * (amount - amounts[-1])
+        full = full_vals[-1] + slope_full * (amount - amounts[-1])
 
     return {'first_year_€m': round(fy, 1), 'full_year_€m': round(full, 1)}
 
@@ -566,9 +582,6 @@ def print_result(result):
     for item in result['items']:
         fy = item['first_year_€m']
         full = item['full_year_€m']
-        sign_fy = "-" if fy > 0 else "+"
-        sign_full = "-" if full > 0 else "+"
-        # Convention: positive = costs exchequer (negative for exchequer)
         print(f"  {item['description']:<42} €{abs(fy):>7.0f}m   €{abs(full):>7.0f}m")
 
     print("-" * 72)
@@ -758,13 +771,21 @@ def calc_individual_usc(gross, params=None):
     return b1 + b2 + b3 + b4
 
 
-def calc_individual_prsi(gross):
+def calc_individual_prsi(gross, employment='paye'):
     """
-    Calculate employee PRSI (Class A, 4%).
+    Calculate PRSI.
 
-    Below €18,304/year: no PRSI.
-    Above: 4% on all earnings, with tapered PRSI credit up to €22,048.
+    PAYE (Class A): 4% on all earnings if above €352/week (€18,304/year),
+    with tapered credit up to €22,048.
+    Self-employed (Class S): 4% with minimum €500/year, no tapered credit.
     """
+    if employment == 'self_employed':
+        # Class S: 4% with minimum €500
+        if gross <= 5_000:
+            return 0.0
+        return max(gross * PRSI_RATE, 500.0)
+
+    # Class A (PAYE)
     if gross <= PRSI_ANNUAL_THRESHOLD:
         return 0.0
 
@@ -782,7 +803,7 @@ def calc_take_home(gross, status='single', employment='paye',
     """
     it = calc_individual_it(gross, status, it_params, employment)
     usc = calc_individual_usc(gross, usc_params)
-    prsi = calc_individual_prsi(gross)
+    prsi = calc_individual_prsi(gross, employment)
     total_ded = it + usc + prsi
     net = gross - total_ded
 
@@ -794,22 +815,23 @@ def calc_take_home(gross, status='single', employment='paye',
         'total_deductions': round(total_ded, 2),
         'net_pay': round(net, 2),
         'effective_rate': round(total_ded / gross * 100, 1) if gross > 0 else 0,
-        'marginal_rate': _marginal_rate(gross, status, it_params, usc_params),
+        'marginal_rate': _marginal_rate(gross, status, employment, it_params, usc_params),
     }
 
 
-def _marginal_rate(gross, status='single', it_params=None, usc_params=None):
+def _marginal_rate(gross, status='single', employment='paye',
+                   it_params=None, usc_params=None):
     """Calculate marginal tax rate at a given income level.
 
     Uses €100 delta to smooth out cliff edges (e.g. USC exemption threshold).
     """
     delta = 100.0
-    base = calc_individual_it(gross, status, it_params) + \
+    base = calc_individual_it(gross, status, it_params, employment) + \
            calc_individual_usc(gross, usc_params) + \
-           calc_individual_prsi(gross)
-    higher = calc_individual_it(gross + delta, status, it_params) + \
+           calc_individual_prsi(gross, employment)
+    higher = calc_individual_it(gross + delta, status, it_params, employment) + \
              calc_individual_usc(gross + delta, usc_params) + \
-             calc_individual_prsi(gross + delta)
+             calc_individual_prsi(gross + delta, employment)
     return round((higher - base) / delta * 100, 1)
 
 
@@ -906,8 +928,6 @@ def distributional_analysis(changes):
 
         if upper >= 550_000:
             label = f"€{lower // 1000}k+"
-        elif lower >= 100_000:
-            label = f"€{lower // 1000}k–€{upper // 1000}k"
         else:
             label = f"€{lower // 1000}k–€{upper // 1000}k"
 
