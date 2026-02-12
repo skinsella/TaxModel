@@ -395,6 +395,38 @@ def cost_credit_change(credit, amount):
     }
 
 
+def cost_rent_credit_change(increase):
+    """
+    Cost of increasing the rent tax credit.
+
+    increase: € increase per single claimant (joint gets 2x)
+
+    Based on Revenue costings from pre-budget 2026 submissions:
+    - Ready Reckoner: €25m/€25m per €100
+    - Sinn Féin item 12A: €55m/€65m for +€250
+    - Sinn Féin item 12B: €105m/€115m for +€500
+
+    Returns: dict with first_year and full_year in €m
+    """
+    # (increase_single, first_year, full_year)
+    points = [(100, 25, 25), (250, 55, 65), (500, 105, 115)]
+    amounts = [p[0] for p in points]
+    fy_vals = [p[1] for p in points]
+    full_vals = [p[2] for p in points]
+
+    if increase <= amounts[-1]:
+        fy = float(np.interp(increase, amounts, fy_vals))
+        full = float(np.interp(increase, amounts, full_vals))
+    else:
+        # Linear extrapolation from last two data points
+        slope_fy = (fy_vals[-1] - fy_vals[-2]) / (amounts[-1] - amounts[-2])
+        slope_full = (full_vals[-1] - full_vals[-2]) / (amounts[-1] - amounts[-2])
+        fy = fy_vals[-1] + slope_fy * (increase - amounts[-1])
+        full = full_vals[-1] + slope_full * (increase - amounts[-1])
+
+    return {'first_year_€m': round(fy, 1), 'full_year_€m': round(full, 1)}
+
+
 def cost_usc_band_change(band, amount):
     """
     Cost of widening a USC rate band.
@@ -488,6 +520,9 @@ def cost_package(changes):
     Tax credit change:
         {'type': 'credit', 'credit': 'employee', 'amount': 100}
 
+    Rent tax credit increase:
+        {'type': 'rent_credit', 'increase': 250}
+
     Returns: dict with itemised costs and totals
     """
     items = []
@@ -544,6 +579,13 @@ def cost_package(changes):
         elif c['type'] == 'credit':
             result = cost_credit_change(c['credit'], c['amount'])
             desc = f"{c['credit'].replace('_', ' ').title()} credit +€{c['amount']}"
+            items.append({'description': desc, **result})
+            total_fy += result['first_year_€m']
+            total_full += result['full_year_€m']
+
+        elif c['type'] == 'rent_credit':
+            result = cost_rent_credit_change(c['increase'])
+            desc = f"Rent tax credit +€{c['increase']} single / +€{c['increase']*2} joint"
             items.append({'description': desc, **result})
             total_fy += result['first_year_€m']
             total_full += result['full_year_€m']

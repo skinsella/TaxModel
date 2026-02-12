@@ -13,7 +13,7 @@ import pandas as pd
 from tax_model import (
     USCParams, cost_usc_change, cost_it_rate_change, cost_it_band_change,
     cost_it_band_change_detail, cost_credit_change, cost_usc_band_change,
-    cost_indexation, cost_package, TAXPAYER_UNITS_2026,
+    cost_rent_credit_change, cost_indexation, cost_package, TAXPAYER_UNITS_2026,
     calc_take_home, distributional_analysis, IncomeTaxParams, IT_2026,
     USC_2026, calc_individual_it, calc_individual_usc, calc_individual_prsi,
 )
@@ -157,6 +157,13 @@ with tab_pkg:
             if hc_amt > 0:
                 changes.append({'type': 'credit', 'credit': 'home_carer',
                                 'amount': hc_amt})
+
+        do_rent = st.checkbox("Increase Rent Tax Credit", key="pkg_cr_rent")
+        if do_rent:
+            rent_amt = st.slider("Rent credit increase (€ single / 2× joint)",
+                                 0, 1000, 250, 50, key="pkg_cr_rent_val")
+            if rent_amt > 0:
+                changes.append({'type': 'rent_credit', 'increase': rent_amt})
 
     with col2:
         st.subheader("USC Rates")
