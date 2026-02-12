@@ -381,6 +381,13 @@ def cost_credit_change(credit, amount):
         'home_carer':     (50,  3.0, 3.4),
         'age':            (50,   20,  24),     # per €50 single / €100 joint
         'rent':           (100,  25,  25),     # per €100 single / €200 joint
+        # New credits from pre-budget 2026 costings (A2 item 9)
+        'widowed':                   (100,   7,   8),
+        'single_person_child_carer': (100,   5,   6),
+        'incapacitated_child':       (100,   3,   4),
+        'dependent_relative':        (100,  13,  15),
+        'blind_persons':             (100, 0.1, 0.1),
+        'widowed_parent_bereavement':(100, 0.2, 0.2),
     }
 
     if credit not in credit_data:

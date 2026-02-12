@@ -158,6 +158,34 @@ with tab_pkg:
                 changes.append({'type': 'credit', 'credit': 'home_carer',
                                 'amount': hc_amt})
 
+        do_widowed = st.checkbox("Increase Widowed Person Credit", key="pkg_cr_w")
+        if do_widowed:
+            w_amt = st.slider("Widowed Person Credit increase (€)",
+                              0, 500, 100, 25, key="pkg_cr_w_val")
+            if w_amt > 0:
+                changes.append({'type': 'credit', 'credit': 'widowed',
+                                'amount': w_amt})
+
+        do_spcc = st.checkbox("Increase Single Person Child Carer Credit",
+                              key="pkg_cr_spcc")
+        if do_spcc:
+            spcc_amt = st.slider("SPCC increase (€)",
+                                 0, 500, 100, 25, key="pkg_cr_spcc_val")
+            if spcc_amt > 0:
+                changes.append({'type': 'credit',
+                                'credit': 'single_person_child_carer',
+                                'amount': spcc_amt})
+
+        do_deprel = st.checkbox("Increase Dependent Relative Credit",
+                                key="pkg_cr_dr")
+        if do_deprel:
+            dr_amt = st.slider("Dependent Relative Credit increase (€)",
+                               0, 500, 100, 25, key="pkg_cr_dr_val")
+            if dr_amt > 0:
+                changes.append({'type': 'credit',
+                                'credit': 'dependent_relative',
+                                'amount': dr_amt})
+
         do_rent = st.checkbox("Increase Rent Tax Credit", key="pkg_cr_rent")
         if do_rent:
             rent_amt = st.slider("Rent credit increase (€ single / 2× joint)",
@@ -651,7 +679,10 @@ with tab_credits:
     with cc1:
         credit_sel = st.selectbox("Credit", [
             'single_person', 'married', 'employee', 'earned_income',
-            'home_carer', 'age', 'rent',
+            'home_carer', 'age', 'rent', 'widowed',
+            'single_person_child_carer', 'incapacitated_child',
+            'dependent_relative', 'blind_persons',
+            'widowed_parent_bereavement',
         ], format_func=lambda x: x.replace('_', ' ').title(),
             key="credit_sel")
 
@@ -675,6 +706,12 @@ with tab_credits:
         ('Home Carer', 'home_carer', 50),
         ('Age', 'age', 50),
         ('Rent', 'rent', 100),
+        ('Widowed Person', 'widowed', 100),
+        ('Single Person Child Carer', 'single_person_child_carer', 100),
+        ('Incapacitated Child', 'incapacitated_child', 100),
+        ('Dependent Relative', 'dependent_relative', 100),
+        ('Blind Persons', 'blind_persons', 100),
+        ('Widowed Parent Bereavement', 'widowed_parent_bereavement', 100),
     ]
     cr_rows = []
     for label, key, unit in all_credits:
