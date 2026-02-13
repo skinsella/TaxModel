@@ -1,0 +1,1673 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Irish Tax Costing Model</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root {
+  --primary: #006D5B;
+  --primary-light: #e8f5f1;
+  --primary-dark: #004d40;
+  --bg: #f8f9fa;
+  --card-bg: #ffffff;
+  --text: #212529;
+  --text-muted: #6c757d;
+  --border: #dee2e6;
+  --success: #28a745;
+  --warning: #ffc107;
+  --info: #17a2b8;
+  --sidebar-w: 280px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 0; left: 0; width: var(--sidebar-w); height: 100vh;
+  background: var(--card-bg); border-right: 1px solid var(--border);
+  padding: 20px 16px; overflow-y: auto; z-index: 100;
+}
+.sidebar h2 { color: var(--primary); font-size: 16px; margin-bottom: 12px; }
+.sidebar h3 { font-size: 13px; font-weight: 600; margin: 12px 0 6px; }
+.sidebar table { width: 100%; font-size: 12px; border-collapse: collapse; margin-bottom: 8px; }
+.sidebar th, .sidebar td { padding: 3px 6px; text-align: left; border-bottom: 1px solid var(--border); }
+.sidebar th { font-weight: 600; background: var(--primary-light); }
+.sidebar .caption { font-size: 11px; color: var(--text-muted); margin-top: 12px; line-height: 1.4; }
+.sidebar-toggle { display: none; position: fixed; top: 10px; left: 10px; z-index: 200; background: var(--primary); color: #fff; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 16px; }
+
+/* Main */
+.main { margin-left: var(--sidebar-w); padding: 24px 32px; max-width: 1200px; }
+.main h1 { color: var(--primary); font-size: 28px; margin-bottom: 8px; }
+.main .subtitle { color: var(--text-muted); margin-bottom: 20px; }
+
+/* Tabs */
+.tab-nav { display: flex; flex-wrap: wrap; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 20px; }
+.tab-btn { padding: 10px 16px; border: none; background: none; cursor: pointer; font-size: 13px; font-weight: 500; color: var(--text-muted); border-bottom: 2px solid transparent; margin-bottom: -2px; white-space: nowrap; }
+.tab-btn:hover { color: var(--primary); }
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* Layout */
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.cols-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+h2.section { font-size: 20px; color: var(--primary); margin-bottom: 12px; }
+h3.section { font-size: 16px; margin: 16px 0 8px; }
+.divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+/* Controls */
+.control-group { margin-bottom: 12px; }
+.control-group label { display: flex; align-items: center; gap: 8px; font-weight: 500; cursor: pointer; }
+.control-group input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }
+.slider-row { display: flex; align-items: center; gap: 12px; margin: 6px 0 6px 24px; }
+.slider-row label { min-width: 200px; font-size: 13px; color: var(--text-muted); }
+.slider-row input[type="range"] { flex: 1; accent-color: var(--primary); }
+.slider-row .val { min-width: 70px; text-align: right; font-weight: 600; font-size: 13px; }
+.hidden { display: none !important; }
+select, input[type="number"] { padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 13px; width: 100%; max-width: 300px; }
+select:focus, input[type="number"]:focus { outline: none; border-color: var(--primary); }
+.field { margin-bottom: 12px; }
+.field > label { display: block; font-weight: 500; margin-bottom: 4px; font-size: 13px; }
+
+/* Metrics */
+.metric { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+.metric .value { font-size: 28px; font-weight: 700; color: var(--primary); }
+.metric .label { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+/* Tables */
+table.data { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0; }
+table.data th { background: var(--primary-light); padding: 8px 10px; text-align: left; font-weight: 600; border-bottom: 2px solid var(--primary); }
+table.data td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+table.data tr:nth-child(even) td { background: #fafafa; }
+table.data .num { text-align: right; font-variant-numeric: tabular-nums; }
+table.data tr.total td { font-weight: 700; border-top: 2px solid var(--primary); background: var(--primary-light); }
+
+/* Info box */
+.info-box { background: #e3f2fd; border-left: 4px solid var(--info); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+.success-box { background: #e8f5e9; border-left: 4px solid var(--success); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+.warning-box { background: #fff8e1; border-left: 4px solid var(--warning); padding: 12px 16px; border-radius: 4px; margin: 12px 0; font-size: 13px; }
+
+/* Charts */
+.chart-container { position: relative; max-height: 400px; margin: 12px 0; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { transform: translateX(-100%); transition: transform 0.3s; }
+  .sidebar.open { transform: translateX(0); }
+  .sidebar-toggle { display: block; }
+  .main { margin-left: 0; padding: 16px; }
+  .cols { grid-template-columns: 1fr; }
+  .cols-3 { grid-template-columns: 1fr; }
+  .tab-btn { font-size: 12px; padding: 8px 10px; }
+}
+</style>
+</head>
+<body>
+
+<button class="sidebar-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')">&#9776;</button>
+
+<aside class="sidebar">
+  <h2>Current 2026 Parameters</h2>
+  <h3>USC Bands</h3>
+  <table><tr><th>Band</th><th>From</th><th>To</th></tr>
+    <tr><td>0.5%</td><td>&euro;0</td><td>&euro;12,012</td></tr>
+    <tr><td>2%</td><td>&euro;12,012</td><td>&euro;28,700</td></tr>
+    <tr><td>3%</td><td>&euro;28,700</td><td>&euro;70,044</td></tr>
+    <tr><td>8%</td><td>&euro;70,044</td><td>&mdash;</td></tr>
+  </table>
+  <h3>Income Tax</h3>
+  <table><tr><th>Status</th><th>Standard Band</th></tr>
+    <tr><td>Single</td><td>&euro;44,000</td></tr>
+    <tr><td>Married (1 earner)</td><td>&euro;53,000</td></tr>
+    <tr><td>Married (2 earners)</td><td>&euro;53k / &euro;35k</td></tr>
+  </table>
+  <h3>Key Credits (2026)</h3>
+  <table><tr><th>Credit</th><th>Amount</th></tr>
+    <tr><td>Single Person</td><td>&euro;2,000</td></tr>
+    <tr><td>Married</td><td>&euro;4,000</td></tr>
+    <tr><td>Employee (PAYE)</td><td>&euro;2,000</td></tr>
+    <tr><td>Earned Income</td><td>&euro;2,000</td></tr>
+  </table>
+  <p style="margin-top:8px;font-size:13px"><strong>Taxpayer Units:</strong> 3,493,400</p>
+  <p style="font-size:13px"><strong>Total Income:</strong> &euro;185.4bn</p>
+  <hr class="divider">
+  <p class="caption">Based on Revenue Ready Reckoner Post-Budget 2026 (Oct 2025) and Individualised Gross Income data (2023).</p>
+</aside>
+
+<div class="main">
+  <h1>Irish Tax Costing Model</h1>
+  <p class="subtitle">Build a budget package and see the Exchequer cost instantly. All figures are <strong>&euro; million</strong> based on 2026 parameters.</p>
+
+  <nav class="tab-nav" id="tabNav">
+    <button class="tab-btn active" data-tab="pkg">Package Builder</button>
+    <button class="tab-btn" data-tab="takehome">Take-Home Calculator</button>
+    <button class="tab-btn" data-tab="usc">USC Rates &amp; Bands</button>
+    <button class="tab-btn" data-tab="it">Income Tax</button>
+    <button class="tab-btn" data-tab="credits">Tax Credits</button>
+    <button class="tab-btn" data-tab="indexation">Indexation</button>
+    <button class="tab-btn" data-tab="dist">Income Distribution</button>
+  </nav>
+
+  <!-- ============================================================ -->
+  <!-- TAB 1: PACKAGE BUILDER -->
+  <!-- ============================================================ -->
+  <div class="tab-panel active" id="tab-pkg">
+    <h2 class="section">Budget Package Builder</h2>
+    <p style="margin-bottom:16px">Toggle measures on/off and set values. The total cost updates live.</p>
+    <div class="cols">
+      <div>
+        <h3 class="section">Income Tax</h3>
+        <div class="control-group">
+          <label><input type="checkbox" id="pkg_band" onchange="pkgUpdate()"> Widen standard rate band</label>
+          <div class="slider-row hidden" id="pkg_band_row">
+            <label>Band increase (&euro;)</label>
+            <input type="range" min="0" max="5000" value="1000" step="100" id="pkg_band_amt" oninput="pkgUpdate()">
+            <span class="val" id="pkg_band_val">&euro;1,000</span>
+          </div>
+        </div>
+        <hr class="divider">
+        <div class="control-group">
+          <label><input type="checkbox" id="pkg_rate20" onchange="pkgUpdate()"> Change 20% rate</label>
+          <div class="slider-row hidden" id="pkg_rate20_row">
+            <label>20% rate change (pp)</label>
+            <input type="range" min="-3" max="3" value="0" step="0.5" id="pkg_rate20_val" oninput="pkgUpdate()">
+            <span class="val" id="pkg_rate20_disp">0.0pp</span>
+          </div>
+        </div>
+        <div class="control-group">
+          <label><input type="checkbox" id="pkg_rate40" onchange="pkgUpdate()"> Change 40% rate</label>
+          <div class="slider-row hidden" id="pkg_rate40_row">
+            <label>40% rate change (pp)</label>
+            <input type="range" min="-3" max="3" value="0" step="0.5" id="pkg_rate40_val" oninput="pkgUpdate()">
+            <span class="val" id="pkg_rate40_disp">0.0pp</span>
+          </div>
+        </div>
+        <hr class="divider">
+        <h3 class="section">Tax Credits</h3>
+        <div id="pkg_credits_container"></div>
+      </div>
+      <div>
+        <h3 class="section">USC Rates</h3>
+        <div id="pkg_usc_rates_container"></div>
+        <hr class="divider">
+        <h3 class="section">USC Bands</h3>
+        <div id="pkg_usc_bands_container"></div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div id="pkg_results"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 2: TAKE-HOME CALCULATOR -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-takehome">
+    <h2 class="section">Net Take-Home Pay Calculator</h2>
+    <p style="margin-bottom:16px">Calculate your net pay under current 2026 parameters, or compare current vs proposed changes.</p>
+    <div class="cols">
+      <div>
+        <h3 class="section">Your Details</h3>
+        <div class="field">
+          <label>Annual gross salary (&euro;)</label>
+          <input type="number" id="th_gross" value="50000" min="0" max="1000000" step="1000" onchange="thUpdate()" oninput="thUpdate()">
+        </div>
+        <div class="field">
+          <label>Filing status</label>
+          <select id="th_status" onchange="thUpdate()">
+            <option value="single">Single</option>
+            <option value="married_one_earner">Married (one earner)</option>
+            <option value="married_two_earner">Married (two earners)</option>
+            <option value="widowed">Widowed</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Employment type</label>
+          <select id="th_emp" onchange="thUpdate()">
+            <option value="paye">PAYE</option>
+            <option value="self_employed">Self-employed</option>
+          </select>
+        </div>
+      </div>
+      <div>
+        <h3 class="section">Proposed Changes (optional)</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Adjust parameters to compare current vs proposed take-home.</p>
+        <div class="field">
+          <label>Standard rate band increase (&euro;)</label>
+          <input type="number" id="th_band_chg" value="0" min="0" max="10000" step="500" onchange="thUpdate()" oninput="thUpdate()">
+        </div>
+        <div class="field">
+          <label>Personal credit increase (&euro;)</label>
+          <input type="number" id="th_credit_chg" value="0" min="0" max="1000" step="50" onchange="thUpdate()" oninput="thUpdate()">
+        </div>
+        <div class="field">
+          <label>Employee/Earned Income credit increase (&euro;)</label>
+          <input type="number" id="th_emp_credit_chg" value="0" min="0" max="1000" step="50" onchange="thUpdate()" oninput="thUpdate()">
+        </div>
+        <div class="slider-row" style="margin-left:0">
+          <label>USC 3% band rate (%)</label>
+          <input type="range" min="0" max="4" value="3" step="0.25" id="th_usc3" oninput="thUpdate()">
+          <span class="val" id="th_usc3_disp">3.00%</span>
+        </div>
+      </div>
+    </div>
+    <hr class="divider">
+    <div id="th_results"></div>
+    <hr class="divider">
+    <h3 class="section">Effective Tax Rate by Income</h3>
+    <div class="chart-container"><canvas id="thChart"></canvas></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 3: USC EXPLORER -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-usc">
+    <h2 class="section">USC Rate &amp; Band Explorer</h2>
+    <div class="cols">
+      <div>
+        <h3 class="section">Rate Changes</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Cost of changing a single USC rate (full year, &euro;m)</p>
+        <div class="field">
+          <label>Select USC band</label>
+          <select id="usc_rate_band" onchange="uscExplUpdate()">
+            <option value="1">0.5% band</option>
+            <option value="2">2% band</option>
+            <option value="3" selected>3% band</option>
+            <option value="4">8% band</option>
+          </select>
+        </div>
+        <div id="usc_rate_table"></div>
+      </div>
+      <div>
+        <h3 class="section">Band Widening</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Cost of widening USC rate bands (&euro;m)</p>
+        <div class="field">
+          <label>Select band boundary</label>
+          <select id="usc_band_type" onchange="uscBandExplUpdate()">
+            <option value="0.5%_upper">0.5% upper</option>
+            <option value="2%_upper">2% upper only</option>
+            <option value="3%">3% band</option>
+            <option value="8%_lower">8% lower threshold</option>
+          </select>
+        </div>
+        <div id="usc_band_table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 4: INCOME TAX -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-it">
+    <h2 class="section">Income Tax Explorer</h2>
+    <div class="cols">
+      <div>
+        <h3 class="section">Rate Changes</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:8px">Cost/yield per 1 percentage point change (&euro;m)</p>
+        <table class="data">
+          <tr><th>Rate</th><th class="num">Cut 1pp (Cost)</th><th class="num">Increase 1pp (Yield)</th></tr>
+          <tr><td>20%</td><td class="num">&euro;1,070m</td><td class="num">&euro;1,085m</td></tr>
+          <tr><td>40%</td><td class="num">&euro;567m</td><td class="num">&euro;567m</td></tr>
+        </table>
+        <hr class="divider">
+        <h3 class="section">Custom Rate Change</h3>
+        <div class="field">
+          <label>Rate</label>
+          <select id="it_rate_sel" onchange="itExplUpdate()">
+            <option value="20">20%</option>
+            <option value="40">40%</option>
+          </select>
+        </div>
+        <div class="slider-row" style="margin-left:0">
+          <label>Change (pp)</label>
+          <input type="range" min="-5" max="5" value="-1" step="0.5" id="it_rate_chg" oninput="itExplUpdate()">
+          <span class="val" id="it_rate_chg_disp">-1.0pp</span>
+        </div>
+        <div id="it_rate_result"></div>
+      </div>
+      <div>
+        <h3 class="section">Standard Rate Band Widening</h3>
+        <div class="slider-row" style="margin-left:0">
+          <label>Band increase (&euro;)</label>
+          <input type="range" min="0" max="5000" value="1000" step="100" id="it_band_exp" oninput="itBandExplUpdate()">
+          <span class="val" id="it_band_exp_disp">&euro;1,000</span>
+        </div>
+        <div id="it_band_table"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 5: TAX CREDITS -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-credits">
+    <h2 class="section">Tax Credit Explorer</h2>
+    <p style="margin-bottom:16px">Select a credit and amount to see the cost.</p>
+    <div class="cols">
+      <div>
+        <div class="field">
+          <label>Credit</label>
+          <select id="credit_sel" onchange="creditExplUpdate()">
+            <option value="single_person">Single Person</option>
+            <option value="married">Married</option>
+            <option value="employee">Employee</option>
+            <option value="earned_income">Earned Income</option>
+            <option value="home_carer">Home Carer</option>
+            <option value="age">Age</option>
+            <option value="rent">Rent</option>
+            <option value="widowed">Widowed</option>
+            <option value="single_person_child_carer">Single Person Child Carer</option>
+            <option value="incapacitated_child">Incapacitated Child</option>
+            <option value="dependent_relative">Dependent Relative</option>
+            <option value="blind_persons">Blind Persons</option>
+            <option value="widowed_parent_bereavement">Widowed Parent Bereavement</option>
+          </select>
+        </div>
+        <div class="slider-row" style="margin-left:0">
+          <label>Increase (&euro;)</label>
+          <input type="range" min="0" max="1000" value="100" step="25" id="credit_amt" oninput="creditExplUpdate()">
+          <span class="val" id="credit_amt_disp">&euro;100</span>
+        </div>
+      </div>
+      <div id="credit_result"></div>
+    </div>
+    <hr class="divider">
+    <h3 class="section">All Credits &mdash; Cost per Standard Increment</h3>
+    <div id="credit_all_table"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 6: INDEXATION -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-indexation">
+    <h2 class="section">Indexation Calculator</h2>
+    <p style="margin-bottom:16px">Cost of indexing the tax system (credits, bands, USC limits) by a given percentage.</p>
+    <div class="slider-row" style="margin-left:0">
+      <label>Indexation rate (%)</label>
+      <input type="range" min="0" max="10" value="2" step="0.5" id="idx_pct" oninput="idxUpdate()">
+      <span class="val" id="idx_pct_disp">2.0%</span>
+    </div>
+    <div id="idx_results"></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 7: INCOME DISTRIBUTION -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-dist">
+    <h2 class="section">Income Distribution (2026 Projected)</h2>
+    <p style="margin-bottom:16px">Revenue Ready Reckoner projected taxpayer units by gross income range.</p>
+    <div id="dist_table"></div>
+    <h3 class="section" style="margin-top:20px">Taxpayer Units by Income Range</h3>
+    <div class="chart-container"><canvas id="distChart"></canvas></div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+
+const INDIVIDUALS_2023 = [
+  [0, 10000, 557390, 2622.84],
+  [10000, 12000, 122705, 1361.31],
+  [12000, 15000, 343481, 4663.45],
+  [15000, 17000, 187734, 2985.64],
+  [17000, 20000, 195215, 3607.05],
+  [20000, 25000, 310555, 6990.34],
+  [25000, 27000, 129091, 3360.14],
+  [27000, 30000, 193791, 5521.52],
+  [30000, 35000, 304175, 9869.89],
+  [35000, 40000, 272633, 10216.77],
+  [40000, 50000, 420841, 18788.30],
+  [50000, 60000, 272555, 14904.12],
+  [60000, 70000, 182260, 11786.48],
+  [70000, 75000, 66742, 4832.93],
+  [75000, 80000, 53842, 4168.64],
+  [80000, 90000, 82592, 6995.57],
+  [90000, 100000, 55976, 5300.31],
+  [100000, 150000, 118067, 14099.60],
+  [150000, 200000, 35912, 6143.20],
+  [200000, 275000, 20798, 4814.03],
+  [275000, 550000, 21842, 11788.31],
+];
+
+const TAXPAYER_UNITS_2026 = [
+  [0, 10000, 481000, 2219, 0.1],
+  [10000, 13000, 138800, 1614, 0.1],
+  [13000, 15000, 154000, 2174, 9.4],
+  [15000, 18000, 189000, 3097, 17],
+  [18000, 20000, 94000, 1786, 16],
+  [20000, 25000, 230600, 5176, 129],
+  [25000, 27000, 86800, 2256, 99],
+  [27000, 30000, 148100, 4226, 214],
+  [30000, 35000, 194500, 6301, 409],
+  [35000, 40000, 205800, 7701, 642],
+  [40000, 50000, 351100, 15669, 1641],
+  [50000, 60000, 249300, 13719, 1909],
+  [60000, 70000, 196600, 12739, 2049],
+  [70000, 75000, 82800, 5989, 1033],
+  [75000, 80000, 70900, 5493, 998],
+  [80000, 90000, 111200, 9427, 1781],
+  [90000, 100000, 89200, 8445, 1686],
+  [100000, 150000, 243400, 29280, 7122],
+  [150000, 200000, 85800, 14679, 4455],
+  [200000, 275000, 46600, 10769, 3752],
+  [275000, 550000, 43800, 22650, 9526],
+];
+
+const INDIVIDUALS_BY_STATUS_2023 = {
+  single_male: [
+    [0,10000,213062,979.83],[10000,12000,37172,410.47],[12000,15000,78426,1059.12],
+    [15000,17000,49852,790.47],[17000,20000,53247,983.86],[20000,25000,86468,1948.20],
+    [25000,27000,35811,931.76],[27000,30000,55036,1568.65],[30000,35000,88222,2862.58],
+    [35000,40000,78638,2946.65],[40000,50000,107010,4765.12],[50000,60000,61756,3371.84],
+    [60000,70000,38669,2500.66],[70000,75000,14155,1025.11],[75000,80000,11399,882.73],
+    [80000,90000,17013,1440.34],[90000,100000,11350,1074.16],[100000,150000,22367,2661.04],
+    [150000,200000,5851,999.41],[200000,275000,2885,664.18],[275000,550000,2388,1187.22],
+  ],
+  single_female: [
+    [0,10000,219330,999.20],[10000,12000,41283,457.25],[12000,15000,89865,1217.25],
+    [15000,17000,59166,940.77],[17000,20000,56601,1045.79],[20000,25000,87378,1967.74],
+    [25000,27000,35839,931.86],[27000,30000,52423,1493.01],[30000,35000,72955,2363.50],
+    [35000,40000,59395,2223.84],[40000,50000,90302,4023.99],[50000,60000,54224,2963.16],
+    [60000,70000,33261,2147.23],[70000,75000,11287,817.12],[75000,80000,8558,662.33],
+    [80000,90000,12171,1030.20],[90000,100000,7768,734.68],[100000,150000,14356,1700.11],
+    [150000,200000,3663,624.30],[200000,275000,1824,420.14],[275000,550000,1479,695.03],
+  ],
+  married_both: [
+    [0,10000,86603,457.09],[10000,12000,32919,367.05],[12000,15000,136348,1856.21],
+    [15000,17000,45108,720.32],[17000,20000,59262,1094.91],[20000,25000,94666,2130.74],
+    [25000,27000,39042,1015.69],[27000,30000,60404,1722.54],[30000,35000,104644,3398.71],
+    [35000,40000,99747,3740.59],[40000,50000,168752,7549.30],[50000,60000,117965,6455.39],
+    [60000,70000,83530,5404.43],[70000,75000,30974,2243.08],[75000,80000,25427,1968.48],
+    [80000,90000,39788,3370.44],[90000,100000,27255,2581.36],[100000,150000,58485,6991.52],
+    [150000,200000,18342,3137.54],[200000,275000,10862,2515.21],[275000,550000,11701,6241.42],
+  ],
+  married_one: [
+    [0,10000,31535,152.03],[10000,12000,6967,77.38],[12000,15000,21724,295.86],
+    [15000,17000,10670,169.60],[17000,20000,12843,238.25],[20000,25000,25181,566.15],
+    [25000,27000,12788,335.06],[27000,30000,18608,528.88],[30000,35000,27634,897.45],
+    [35000,40000,26149,980.09],[40000,50000,42366,1894.86],[50000,60000,29880,1636.46],
+    [60000,70000,21709,1405.72],[70000,75000,8496,615.18],[75000,80000,7059,546.78],
+    [80000,90000,11727,994.19],[90000,100000,8361,792.43],[100000,150000,20487,2465.09],
+    [150000,200000,7383,1266.61],[200000,275000,4843,1125.55],[275000,550000,5859,3413.74],
+  ],
+  widower: [
+    [0,10000,2414,12.02],[10000,12000,969,10.87],[12000,15000,4802,65.68],
+    [15000,17000,5491,87.26],[17000,20000,3682,67.80],[20000,25000,4608,103.02],
+    [25000,27000,1400,36.40],[27000,30000,1985,56.58],[30000,35000,3020,98.13],
+    [35000,40000,2730,102.21],[40000,50000,4330,194.43],[50000,60000,3343,182.60],
+    [60000,70000,1950,125.97],[70000,75000,732,52.95],[75000,80000,531,41.08],
+    [80000,90000,754,63.95],[90000,100000,522,49.51],[100000,150000,1109,132.38],
+    [150000,200000,328,56.23],[200000,275000,187,43.21],[275000,550000,238,143.94],
+  ],
+  widow: [
+    [0,10000,4446,22.66],[10000,12000,3395,38.28],[12000,15000,12316,169.33],
+    [15000,17000,17447,277.21],[17000,20000,9580,176.44],[20000,25000,12254,274.48],
+    [25000,27000,4211,109.37],[27000,30000,5335,151.85],[30000,35000,7700,249.52],
+    [35000,40000,5974,223.40],[40000,50000,8081,360.61],[50000,60000,5387,294.66],
+    [60000,70000,3141,202.48],[70000,75000,1098,79.49],[75000,80000,868,67.25],
+    [80000,90000,1139,96.45],[90000,100000,720,68.16],[100000,150000,1263,149.46],
+    [150000,200000,345,59.11],[200000,275000,197,45.74],[275000,550000,177,106.97],
+  ],
+};
+
+const STATUS_TAX_MAP = {
+  single_male: 'single',
+  single_female: 'single',
+  married_both: 'married_two_earner',
+  married_one: 'married_one_earner',
+  widower: 'widowed',
+  widow: 'widowed',
+};
+
+// ============================================================
+// TAX PARAMETERS (defaults)
+// ============================================================
+
+function defaultUSC() {
+  return {
+    exemption_threshold: 13000,
+    band1_limit: 12012, band2_upper: 28700, band3_upper: 70044,
+    band1_rate: 0.005, band2_rate: 0.02, band3_rate: 0.03, band4_rate: 0.08,
+  };
+}
+
+function defaultIT() {
+  return {
+    standard_rate: 0.20, higher_rate: 0.40,
+    single_band: 44000, married_one_earner_band: 53000, married_two_earner_band: 35000,
+    single_person_credit: 2000, married_credit: 4000,
+    employee_credit: 2000, earned_income_credit: 2000, widowed_credit: 2540,
+  };
+}
+
+const PRSI_RATE = 0.04;
+const PRSI_ANNUAL_THRESHOLD = 18304;
+const PRSI_CREDIT_MAX = 624;
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+function linearInterp(x, xs, ys) {
+  // Match np.interp: clamp at boundaries (don't extrapolate below first point)
+  if (x <= xs[0]) return ys[0];
+  if (x >= xs[xs.length - 1]) {
+    const n = xs.length;
+    const slope = (ys[n-1] - ys[n-2]) / (xs[n-1] - xs[n-2]);
+    return ys[n-1] + slope * (x - xs[n-1]);
+  }
+  for (let i = 0; i < xs.length - 1; i++) {
+    if (x >= xs[i] && x <= xs[i+1]) {
+      const t = (x - xs[i]) / (xs[i+1] - xs[i]);
+      return ys[i] + t * (ys[i+1] - ys[i]);
+    }
+  }
+  return ys[ys.length - 1];
+}
+
+function fmt(n) { return n.toLocaleString('en-IE', {maximumFractionDigits: 0}); }
+function fmtM(n) { return '\u20AC' + Math.abs(n).toLocaleString('en-IE', {maximumFractionDigits: 0}) + 'm'; }
+function fmtM1(n) { return '\u20AC' + Math.abs(n).toLocaleString('en-IE', {minimumFractionDigits: 1, maximumFractionDigits: 1}) + 'm'; }
+function fmtE(n) { return (n < 0 ? '-' : '') + '\u20AC' + Math.abs(n).toLocaleString('en-IE', {minimumFractionDigits: 2, maximumFractionDigits: 2}); }
+function fmtE0(n) { return (n < 0 ? '-' : '') + '\u20AC' + Math.abs(n).toLocaleString('en-IE', {maximumFractionDigits: 0}); }
+
+// ============================================================
+// USC MICROSIMULATION
+// ============================================================
+
+function buildSyntheticPopulation(distData, nPoints) {
+  nPoints = nPoints || 500;
+  const allIncomes = [];
+  const allWeights = [];
+
+  for (const row of distData) {
+    const [lower, upper, count, totalIncomeM] = row;
+    if (count === 0) continue;
+    const avg = (totalIncomeM * 1e6) / count;
+
+    const incomes = new Float64Array(nPoints);
+    for (let i = 0; i < nPoints; i++) {
+      incomes[i] = lower + 0.5 + (upper - lower - 1) * i / (nPoints - 1);
+    }
+
+    // Scale to match observed average
+    let sum = 0;
+    for (let i = 0; i < nPoints; i++) sum += incomes[i];
+    const currentAvg = sum / nPoints;
+    if (currentAvg > 0) {
+      const scale = avg / currentAvg;
+      const maxVal = Math.max(upper, avg * 1.5);
+      for (let i = 0; i < nPoints; i++) {
+        incomes[i] = Math.min(Math.max(incomes[i] * scale, lower), maxVal);
+      }
+    }
+
+    const w = count / nPoints;
+    allIncomes.push(incomes);
+    allWeights.push(new Float64Array(nPoints).fill(w));
+  }
+
+  // Concatenate
+  const totalLen = allIncomes.reduce((s, a) => s + a.length, 0);
+  const inc = new Float64Array(totalLen);
+  const wt = new Float64Array(totalLen);
+  let offset = 0;
+  for (let i = 0; i < allIncomes.length; i++) {
+    inc.set(allIncomes[i], offset);
+    wt.set(allWeights[i], offset);
+    offset += allIncomes[i].length;
+  }
+  return { incomes: inc, weights: wt };
+}
+
+function calcUSCArray(incomes, weights, params) {
+  let total = 0;
+  for (let i = 0; i < incomes.length; i++) {
+    const inc = incomes[i];
+    if (inc <= params.exemption_threshold) continue;
+    const b1 = Math.min(inc, params.band1_limit) * params.band1_rate;
+    const b2 = Math.max(Math.min(inc, params.band2_upper) - params.band1_limit, 0) * params.band2_rate;
+    const b3 = Math.max(Math.min(inc, params.band3_upper) - params.band2_upper, 0) * params.band3_rate;
+    const b4 = Math.max(inc - params.band3_upper, 0) * params.band4_rate;
+    total += (b1 + b2 + b3 + b4) * weights[i];
+  }
+  return total;
+}
+
+function calibratedUSCCost(incomes, weights, baseline, counterfactual) {
+  const CAL = {1: 0.861, 2: 0.938, 3: 0.832, 4: 0.887};
+
+  function bandUSC(inc, params, liable) {
+    if (!liable) return [0, 0, 0, 0];
+    const b1 = Math.min(inc, params.band1_limit) * params.band1_rate;
+    const b2w = params.band2_upper - params.band1_limit;
+    const b2 = Math.max(Math.min(inc - params.band1_limit, b2w), 0) * params.band2_rate;
+    const b3w = params.band3_upper - params.band2_upper;
+    const b3 = Math.max(Math.min(inc - params.band2_upper, b3w), 0) * params.band3_rate;
+    const b4 = Math.max(inc - params.band3_upper, 0) * params.band4_rate;
+    return [b1, b2, b3, b4];
+  }
+
+  let diff = [0, 0, 0, 0];
+  for (let i = 0; i < incomes.length; i++) {
+    const inc = incomes[i];
+    const w = weights[i];
+    const liableB = inc > baseline.exemption_threshold;
+    const liableC = inc > counterfactual.exemption_threshold;
+    const bb = bandUSC(inc, baseline, liableB);
+    const cb = bandUSC(inc, counterfactual, liableC);
+    for (let j = 0; j < 4; j++) diff[j] += (bb[j] - cb[j]) * w;
+  }
+
+  return (diff[0] * CAL[1] + diff[1] * CAL[2] + diff[2] * CAL[3] + diff[3] * CAL[4]) / 1e6;
+}
+
+// Cache synthetic population
+let _synthCache = null;
+function getSynth() {
+  if (!_synthCache) {
+    _synthCache = buildSyntheticPopulation(INDIVIDUALS_2023);
+    // Scale to 2026
+    const incomeGrowth = 185410 / 154820;
+    const popGrowth = 4100000 / 3948197;
+    for (let i = 0; i < _synthCache.incomes.length; i++) {
+      _synthCache.incomes[i] *= incomeGrowth;
+      _synthCache.weights[i] *= popGrowth;
+    }
+  }
+  return _synthCache;
+}
+
+function costUSCChange(baseline, counterfactual) {
+  const {incomes, weights} = getSynth();
+  const baselineYield = calcUSCArray(incomes, weights, baseline) / 1e6;
+  const newYield = calcUSCArray(incomes, weights, counterfactual) / 1e6;
+  const rawCost = baselineYield - newYield;
+
+  let cost;
+  if (rawCost !== 0) {
+    cost = calibratedUSCCost(incomes, weights, baseline, counterfactual);
+  } else {
+    cost = 0;
+  }
+
+  return {
+    baseline_usc: Math.round(baselineYield * 10) / 10,
+    new_usc: Math.round(newYield * 10) / 10,
+    full_year_cost: Math.round(cost),
+  };
+}
+
+// ============================================================
+// INCOME TAX COSTING
+// ============================================================
+
+const IT_COSTS_PER_1PP = {
+  '20': {cut_fy: 936, cut_full: 1070, inc_fy: 948, inc_full: 1085},
+  '40': {cut_fy: 482, cut_full: 567, inc_fy: 482, inc_full: 567},
+};
+
+function costITRateChange(rate, changePP) {
+  const ref = IT_COSTS_PER_1PP[rate];
+  if (changePP < 0) {
+    return {
+      first_year: Math.round(Math.abs(changePP) * ref.cut_fy),
+      full_year: Math.round(Math.abs(changePP) * ref.cut_full),
+    };
+  } else {
+    return {
+      first_year: Math.round(-changePP * ref.inc_fy),
+      full_year: Math.round(-changePP * ref.inc_full),
+    };
+  }
+}
+
+const IT_BAND_POINTS = [[100, 24, 27], [500, 117, 134], [1000, 232, 265], [1500, 344, 393]];
+
+function costITBandChange(increase) {
+  if (increase <= 0) return {first_year: 0, full_year: 0};
+  const amounts = IT_BAND_POINTS.map(p => p[0]);
+  const fy = IT_BAND_POINTS.map(p => p[1]);
+  const full = IT_BAND_POINTS.map(p => p[2]);
+  return {
+    first_year: Math.round(linearInterp(increase, amounts, fy)),
+    full_year: Math.round(linearInterp(increase, amounts, full)),
+  };
+}
+
+function costITBandChangeDetail(increase) {
+  if (increase <= 0) return null;
+  const single_pts = [[100,11,12],[500,52,59],[1000,103,116],[1500,152,173]];
+  const m1_pts = [[100,2.5,2.8],[500,12,14],[1000,24,28],[1500,36,42]];
+  const m2_pts = [[100,11,12],[500,53,61],[1000,105,121],[1500,156,179]];
+
+  function interp(pts, inc) {
+    const a = pts.map(p=>p[0]), f = pts.map(p=>p[1]), g = pts.map(p=>p[2]);
+    return {first_year: Math.round(linearInterp(inc,a,f)*10)/10, full_year: Math.round(linearInterp(inc,a,g)*10)/10};
+  }
+
+  const s = interp(single_pts, increase);
+  const m1 = interp(m1_pts, increase);
+  const m2 = interp(m2_pts, increase);
+  const total = costITBandChange(increase);
+
+  return {single: s, married_one_earner: m1, married_two_earner: m2, total};
+}
+
+// ============================================================
+// TAX CREDITS
+// ============================================================
+
+const CREDIT_DATA = {
+  single_person: [100, 112, 127],
+  married: [200, 150, 172],
+  employee: [50, 110, 125],
+  earned_income: [50, 8, 12],
+  home_carer: [50, 3.0, 3.4],
+  age: [50, 20, 24],
+  rent: [100, 25, 25],
+  widowed: [100, 7, 8],
+  single_person_child_carer: [100, 5, 6],
+  incapacitated_child: [100, 3, 4],
+  dependent_relative: [100, 13, 15],
+  blind_persons: [100, 0.1, 0.1],
+  widowed_parent_bereavement: [100, 0.2, 0.2],
+};
+
+function costCreditChange(credit, amount) {
+  const [unit, fyPerUnit, fullPerUnit] = CREDIT_DATA[credit];
+  const multiplier = amount / unit;
+  return {
+    first_year: Math.round(multiplier * fyPerUnit * 10) / 10,
+    full_year: Math.round(multiplier * fullPerUnit * 10) / 10,
+  };
+}
+
+const RENT_CREDIT_POINTS = [[100, 25, 25], [250, 55, 65], [500, 105, 115]];
+
+function costRentCreditChange(increase) {
+  if (increase <= 0) return {first_year: 0, full_year: 0};
+  const amounts = RENT_CREDIT_POINTS.map(p => p[0]);
+  const fyVals = RENT_CREDIT_POINTS.map(p => p[1]);
+  const fullVals = RENT_CREDIT_POINTS.map(p => p[2]);
+  return {
+    first_year: Math.round(linearInterp(increase, amounts, fyVals) * 10) / 10,
+    full_year: Math.round(linearInterp(increase, amounts, fullVals) * 10) / 10,
+  };
+}
+
+// ============================================================
+// USC BAND CHANGES
+// ============================================================
+
+const USC_BAND_DATA = {
+  'exemption': [[100,0.4,0.5],[500,2.2,2.5],[1000,5,6],[1500,8,9]],
+  '0.5%_upper': [[100,5,5],[500,20,23],[1000,39,45],[1500,59,68]],
+  '2%_both': [[100,6,7],[500,29,33],[1000,56,64],[1500,84,97]],
+  '2%_upper': [[100,1.7,1.9],[500,8,10],[1000,17,19],[1500,25,29]],
+  '3%': [[100,4.2,4.8],[500,21,24],[1000,42,48],[1500,62,71]],
+  '8%_lower': [[500,13,14],[1000,25,29],[2000,49,56],[5000,117,135]],
+};
+
+function costUSCBandChange(band, amount) {
+  if (amount <= 0) return {first_year: 0, full_year: 0};
+  const pts = USC_BAND_DATA[band];
+  const amounts = pts.map(p => p[0]);
+  const fyVals = pts.map(p => p[1]);
+  const fullVals = pts.map(p => p[2]);
+  return {
+    first_year: Math.round(linearInterp(amount, amounts, fyVals) * 10) / 10,
+    full_year: Math.round(linearInterp(amount, amounts, fullVals) * 10) / 10,
+  };
+}
+
+// ============================================================
+// INDEXATION
+// ============================================================
+
+const INDEXATION_COMPONENTS = {
+  'Personal credits + rate bands + SPCCC': [164, 188],
+  'Employee credit + personal credits + bands': [208, 238],
+  'Earned Income Credit': [3.1, 4.3],
+  'USC bands and exemption limits': [29, 33],
+};
+
+function costIndexation(pct) {
+  const results = {};
+  for (const [desc, [fy, full]] of Object.entries(INDEXATION_COMPONENTS)) {
+    results[desc] = {
+      first_year: Math.round(fy * pct * 10) / 10,
+      full_year: Math.round(full * pct * 10) / 10,
+    };
+  }
+  return results;
+}
+
+// ============================================================
+// PACKAGE COSTING ENGINE
+// ============================================================
+
+const USC_FY_RATIOS = {1: 0.867, 2: 0.870, 3: 0.874, 4: 0.831};
+const BAND_ATTR = {1: 'band1_rate', 2: 'band2_rate', 3: 'band3_rate', 4: 'band4_rate'};
+const RATE_LABELS = {1: '0.5%', 2: '2%', 3: '3%', 4: '8%'};
+
+function costPackage(changes) {
+  const items = [];
+  let totalFY = 0, totalFull = 0;
+
+  for (const c of changes) {
+    if (c.type === 'usc_rate') {
+      const baseline = defaultUSC();
+      const counter = defaultUSC();
+      counter[BAND_ATTR[c.band]] = c.new_rate;
+      const result = costUSCChange(baseline, counter);
+      const full = result.full_year_cost;
+      const ratio = USC_FY_RATIOS[c.band] || 0.87;
+      const fy = Math.round(full * ratio);
+      const desc = `USC ${RATE_LABELS[c.band]} rate \u2192 ${(c.new_rate*100).toFixed(1)}%`;
+      items.push({description: desc, first_year: fy, full_year: full});
+      totalFY += fy; totalFull += full;
+
+    } else if (c.type === 'usc_band') {
+      const result = costUSCBandChange(c.band, c.amount);
+      const desc = `USC ${c.band} band +\u20AC${c.amount.toLocaleString()}`;
+      items.push({description: desc, ...result});
+      totalFY += result.first_year; totalFull += result.full_year;
+
+    } else if (c.type === 'it_rate') {
+      const result = costITRateChange(c.rate, c.change_pp);
+      const dir = c.change_pp < 0 ? 'cut' : 'increase';
+      const desc = `IT ${c.rate}% rate ${dir} ${Math.abs(c.change_pp)}pp`;
+      items.push({description: desc, ...result});
+      totalFY += result.first_year; totalFull += result.full_year;
+
+    } else if (c.type === 'it_band') {
+      const result = costITBandChange(c.increase);
+      const desc = `IT standard band +\u20AC${c.increase.toLocaleString()}`;
+      items.push({description: desc, ...result});
+      totalFY += result.first_year; totalFull += result.full_year;
+
+    } else if (c.type === 'credit') {
+      const result = costCreditChange(c.credit, c.amount);
+      const name = c.credit.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+      const desc = `${name} credit +\u20AC${c.amount}`;
+      items.push({description: desc, ...result});
+      totalFY += result.first_year; totalFull += result.full_year;
+
+    } else if (c.type === 'rent_credit') {
+      const result = costRentCreditChange(c.increase);
+      const desc = `Rent tax credit +\u20AC${c.increase} single / +\u20AC${c.increase*2} joint`;
+      items.push({description: desc, ...result});
+      totalFY += result.first_year; totalFull += result.full_year;
+    }
+  }
+
+  return {items, total_first_year: Math.round(totalFY), total_full_year: Math.round(totalFull)};
+}
+
+// ============================================================
+// INDIVIDUAL TAX CALCULATIONS
+// ============================================================
+
+function calcIndividualIT(gross, status, params, employment) {
+  params = params || defaultIT();
+  employment = employment || 'paye';
+  const bands = {
+    single: params.single_band,
+    married_one_earner: params.married_one_earner_band,
+    married_two_earner: params.married_two_earner_band,
+    widowed: params.single_band,
+  };
+  const band = bands[status] || params.single_band;
+  const standardPortion = Math.min(gross, band);
+  const higherPortion = Math.max(gross - band, 0);
+  const grossTax = standardPortion * params.standard_rate + higherPortion * params.higher_rate;
+
+  let credits;
+  if (status === 'single') credits = params.single_person_credit;
+  else if (status === 'married_one_earner') credits = params.married_credit;
+  else if (status === 'married_two_earner') credits = params.married_credit / 2;
+  else if (status === 'widowed') credits = params.widowed_credit;
+  else credits = params.single_person_credit;
+
+  if (employment === 'paye') credits += params.employee_credit;
+  else credits += params.earned_income_credit;
+
+  return Math.max(grossTax - credits, 0);
+}
+
+function calcIndividualUSC(gross, params) {
+  params = params || defaultUSC();
+  if (gross <= params.exemption_threshold) return 0;
+  const b1 = Math.min(gross, params.band1_limit) * params.band1_rate;
+  const b2 = Math.max(Math.min(gross, params.band2_upper) - params.band1_limit, 0) * params.band2_rate;
+  const b3 = Math.max(Math.min(gross, params.band3_upper) - params.band2_upper, 0) * params.band3_rate;
+  const b4 = Math.max(gross - params.band3_upper, 0) * params.band4_rate;
+  return b1 + b2 + b3 + b4;
+}
+
+function calcIndividualPRSI(gross, employment) {
+  if (employment === 'self_employed') {
+    if (gross <= 5000) return 0;
+    return Math.max(gross * PRSI_RATE, 500);
+  }
+  if (gross <= PRSI_ANNUAL_THRESHOLD) return 0;
+  const prsiGross = gross * PRSI_RATE;
+  const credit = Math.max(0, PRSI_CREDIT_MAX - (gross - PRSI_ANNUAL_THRESHOLD) / 6);
+  return Math.max(prsiGross - credit, 0);
+}
+
+function calcTakeHome(gross, status, employment, itParams, uscParams) {
+  const it = calcIndividualIT(gross, status, itParams, employment);
+  const usc = calcIndividualUSC(gross, uscParams);
+  const prsi = calcIndividualPRSI(gross, employment);
+  const totalDed = it + usc + prsi;
+  const net = gross - totalDed;
+
+  // Marginal rate
+  const delta = 100;
+  const base = calcIndividualIT(gross, status, itParams, employment) +
+               calcIndividualUSC(gross, uscParams) +
+               calcIndividualPRSI(gross, employment);
+  const higher = calcIndividualIT(gross + delta, status, itParams, employment) +
+                 calcIndividualUSC(gross + delta, uscParams) +
+                 calcIndividualPRSI(gross + delta, employment);
+  const marginal = Math.round((higher - base) / delta * 1000) / 10;
+
+  return {
+    gross, income_tax: Math.round(it * 100) / 100,
+    usc: Math.round(usc * 100) / 100, prsi: Math.round(prsi * 100) / 100,
+    total_deductions: Math.round(totalDed * 100) / 100,
+    net_pay: Math.round(net * 100) / 100,
+    effective_rate: gross > 0 ? Math.round(totalDed / gross * 1000) / 10 : 0,
+    marginal_rate: marginal,
+  };
+}
+
+// ============================================================
+// DISTRIBUTIONAL ANALYSIS
+// ============================================================
+
+function distributionalAnalysis(changes) {
+  const newIT = defaultIT();
+  const newUSC = defaultUSC();
+
+  for (const c of changes) {
+    if (c.type === 'it_band') {
+      newIT.single_band += c.increase;
+      newIT.married_one_earner_band += c.increase;
+      newIT.married_two_earner_band += c.increase;
+    } else if (c.type === 'it_rate') {
+      if (c.rate === '20') newIT.standard_rate += c.change_pp / 100;
+      else if (c.rate === '40') newIT.higher_rate += c.change_pp / 100;
+    } else if (c.type === 'credit') {
+      const map = {
+        single_person: 'single_person_credit', married: 'married_credit',
+        employee: 'employee_credit', earned_income: 'earned_income_credit',
+      };
+      const attr = map[c.credit];
+      if (attr) {
+        newIT[attr] += c.amount;
+        if (c.credit === 'single_person') newIT.widowed_credit += c.amount;
+      }
+    } else if (c.type === 'usc_rate') {
+      newUSC[BAND_ATTR[c.band]] = c.new_rate;
+    } else if (c.type === 'usc_band') {
+      if (c.band === 'exemption') newUSC.exemption_threshold += c.amount;
+      else if (c.band === '0.5%_upper') newUSC.band1_limit += c.amount;
+      else if (c.band === '2%_upper' || c.band === '2%_both') newUSC.band2_upper += c.amount;
+      else if (c.band === '3%') newUSC.band3_upper += c.amount;
+      else if (c.band === '8%_lower') newUSC.band3_upper += c.amount;
+    }
+  }
+
+  const baseIT = defaultIT();
+  const baseUSC = defaultUSC();
+  const growth = 185410 / 154820;
+  const nBands = INDIVIDUALS_BY_STATUS_2023.single_male.length;
+  const results = [];
+
+  for (let i = 0; i < nBands; i++) {
+    const [lower, upper] = INDIVIDUALS_BY_STATUS_2023.single_male[i];
+    let totalSaving = 0, totalCount = 0;
+
+    for (const [statusKey, taxStatus] of Object.entries(STATUS_TAX_MAP)) {
+      const row = INDIVIDUALS_BY_STATUS_2023[statusKey][i];
+      const count = row[2], incomeM = row[3];
+      if (count === 0) continue;
+      const avgIncome = (incomeM * 1e6 / count) * growth;
+
+      const itCurr = calcIndividualIT(avgIncome, taxStatus, baseIT);
+      const uscCurr = calcIndividualUSC(avgIncome, baseUSC);
+      const itNew = calcIndividualIT(avgIncome, taxStatus, newIT);
+      const uscNew = calcIndividualUSC(avgIncome, newUSC);
+
+      const saving = (itCurr + uscCurr) - (itNew + uscNew);
+      totalSaving += saving * count;
+      totalCount += count;
+    }
+
+    const avgSaving = totalCount > 0 ? totalSaving / totalCount : 0;
+    const label = upper >= 550000 ? `\u20AC${lower/1000}k+` : `\u20AC${lower/1000}k\u2013\u20AC${upper/1000}k`;
+    results.push({
+      band: label, lower, upper, count: totalCount,
+      avg_saving: Math.round(avgSaving),
+      total_saving: Math.round(totalSaving / 1e6 * 10) / 10,
+    });
+  }
+  return results;
+}
+
+// ============================================================
+// TAB NAVIGATION
+// ============================================================
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================
+// TAB 1: PACKAGE BUILDER UI
+// ============================================================
+
+// Build credit controls
+const PKG_CREDITS = [
+  {id: 'single', label: 'Increase Single Person Credit', credit: 'single_person', max: 500, def: 100, step: 25},
+  {id: 'employee', label: 'Increase Employee (PAYE) Credit', credit: 'employee', max: 500, def: 100, step: 25},
+  {id: 'earned', label: 'Increase Earned Income Credit', credit: 'earned_income', max: 500, def: 100, step: 25},
+  {id: 'hcarer', label: 'Increase Home Carer Credit', credit: 'home_carer', max: 500, def: 100, step: 25},
+  {id: 'widowed', label: 'Increase Widowed Person Credit', credit: 'widowed', max: 500, def: 100, step: 25},
+  {id: 'spcc', label: 'Increase Single Person Child Carer Credit', credit: 'single_person_child_carer', max: 500, def: 100, step: 25},
+  {id: 'deprel', label: 'Increase Dependent Relative Credit', credit: 'dependent_relative', max: 500, def: 100, step: 25},
+  {id: 'rent', label: 'Increase Rent Tax Credit', credit: 'rent_credit', max: 1000, def: 250, step: 50, isRent: true},
+];
+
+{
+  const container = document.getElementById('pkg_credits_container');
+  for (const cr of PKG_CREDITS) {
+    const sliderLabel = cr.isRent ? 'Rent credit increase (\u20AC single / 2\u00D7 joint)' : `${cr.label.replace('Increase ', '')} increase (\u20AC)`;
+    container.innerHTML += `
+      <div class="control-group">
+        <label><input type="checkbox" id="pkg_cr_${cr.id}" onchange="pkgUpdate()"> ${cr.label}</label>
+        <div class="slider-row hidden" id="pkg_cr_${cr.id}_row">
+          <label>${sliderLabel}</label>
+          <input type="range" min="0" max="${cr.max}" value="${cr.def}" step="${cr.step}" id="pkg_cr_${cr.id}_val" oninput="pkgUpdate()">
+          <span class="val" id="pkg_cr_${cr.id}_disp">\u20AC${cr.def}</span>
+        </div>
+      </div>`;
+  }
+}
+
+// Build USC rate controls
+const PKG_USC_RATES = [
+  {id: 'usc1', label: 'Change 0.5% USC rate', band: 1, min: 0, max: 0.5, def: 0.5, step: 0.1, current: 0.5},
+  {id: 'usc2', label: 'Change 2% USC rate', band: 2, min: 0, max: 3, def: 2, step: 0.25, current: 2},
+  {id: 'usc3', label: 'Change 3% USC rate', band: 3, min: 0, max: 4, def: 3, step: 0.25, current: 3},
+  {id: 'usc4', label: 'Change 8% USC rate', band: 4, min: 4, max: 10, def: 8, step: 0.5, current: 8},
+];
+
+{
+  const container = document.getElementById('pkg_usc_rates_container');
+  for (const u of PKG_USC_RATES) {
+    container.innerHTML += `
+      <div class="control-group">
+        <label><input type="checkbox" id="pkg_${u.id}" onchange="pkgUpdate()"> ${u.label}</label>
+        <div class="slider-row hidden" id="pkg_${u.id}_row">
+          <label>New rate (%)</label>
+          <input type="range" min="${u.min}" max="${u.max}" value="${u.def}" step="${u.step}" id="pkg_${u.id}_val" oninput="pkgUpdate()">
+          <span class="val" id="pkg_${u.id}_disp">${u.def.toFixed(1)}%</span>
+        </div>
+      </div>`;
+  }
+}
+
+// Build USC band controls
+const PKG_USC_BANDS = [
+  {id: 'usc_b2', label: 'Widen 2% band (upper end)', band: '2%_upper', max: 3000, def: 500, step: 100},
+  {id: 'usc_b3', label: 'Widen 3% band', band: '3%', max: 3000, def: 500, step: 100},
+  {id: 'usc_b8', label: 'Raise 8% threshold', band: '8%_lower', max: 10000, def: 1000, step: 500},
+];
+
+{
+  const container = document.getElementById('pkg_usc_bands_container');
+  for (const b of PKG_USC_BANDS) {
+    container.innerHTML += `
+      <div class="control-group">
+        <label><input type="checkbox" id="pkg_${b.id}" onchange="pkgUpdate()"> ${b.label}</label>
+        <div class="slider-row hidden" id="pkg_${b.id}_row">
+          <label>Increase (\u20AC)</label>
+          <input type="range" min="0" max="${b.max}" value="${b.def}" step="${b.step}" id="pkg_${b.id}_val" oninput="pkgUpdate()">
+          <span class="val" id="pkg_${b.id}_disp">\u20AC${b.def.toLocaleString()}</span>
+        </div>
+      </div>`;
+  }
+}
+
+let pkgCostChart = null;
+let pkgDistChart = null;
+
+function pkgUpdate() {
+  // Toggle slider visibility
+  const togglePairs = [
+    ['pkg_band', 'pkg_band_row'], ['pkg_rate20', 'pkg_rate20_row'], ['pkg_rate40', 'pkg_rate40_row'],
+  ];
+  for (const cr of PKG_CREDITS) togglePairs.push([`pkg_cr_${cr.id}`, `pkg_cr_${cr.id}_row`]);
+  for (const u of PKG_USC_RATES) togglePairs.push([`pkg_${u.id}`, `pkg_${u.id}_row`]);
+  for (const b of PKG_USC_BANDS) togglePairs.push([`pkg_${b.id}`, `pkg_${b.id}_row`]);
+
+  for (const [cbId, rowId] of togglePairs) {
+    const cb = document.getElementById(cbId);
+    const row = document.getElementById(rowId);
+    if (cb.checked) row.classList.remove('hidden');
+    else row.classList.add('hidden');
+  }
+
+  // Update slider display values
+  const bandAmt = parseInt(document.getElementById('pkg_band_amt').value);
+  document.getElementById('pkg_band_val').textContent = '\u20AC' + bandAmt.toLocaleString();
+  const r20 = parseFloat(document.getElementById('pkg_rate20_val').value);
+  document.getElementById('pkg_rate20_disp').textContent = r20.toFixed(1) + 'pp';
+  const r40 = parseFloat(document.getElementById('pkg_rate40_val').value);
+  document.getElementById('pkg_rate40_disp').textContent = r40.toFixed(1) + 'pp';
+
+  for (const cr of PKG_CREDITS) {
+    const v = parseInt(document.getElementById(`pkg_cr_${cr.id}_val`).value);
+    document.getElementById(`pkg_cr_${cr.id}_disp`).textContent = '\u20AC' + v.toLocaleString();
+  }
+  for (const u of PKG_USC_RATES) {
+    const v = parseFloat(document.getElementById(`pkg_${u.id}_val`).value);
+    document.getElementById(`pkg_${u.id}_disp`).textContent = v.toFixed(1) + '%';
+  }
+  for (const b of PKG_USC_BANDS) {
+    const v = parseInt(document.getElementById(`pkg_${b.id}_val`).value);
+    document.getElementById(`pkg_${b.id}_disp`).textContent = '\u20AC' + v.toLocaleString();
+  }
+
+  // Build changes list
+  const changes = [];
+
+  if (document.getElementById('pkg_band').checked && bandAmt > 0)
+    changes.push({type: 'it_band', increase: bandAmt});
+  if (document.getElementById('pkg_rate20').checked && r20 !== 0)
+    changes.push({type: 'it_rate', rate: '20', change_pp: r20});
+  if (document.getElementById('pkg_rate40').checked && r40 !== 0)
+    changes.push({type: 'it_rate', rate: '40', change_pp: r40});
+
+  for (const cr of PKG_CREDITS) {
+    if (!document.getElementById(`pkg_cr_${cr.id}`).checked) continue;
+    const v = parseInt(document.getElementById(`pkg_cr_${cr.id}_val`).value);
+    if (v <= 0) continue;
+    if (cr.isRent) changes.push({type: 'rent_credit', increase: v});
+    else changes.push({type: 'credit', credit: cr.credit, amount: v});
+  }
+
+  for (const u of PKG_USC_RATES) {
+    if (!document.getElementById(`pkg_${u.id}`).checked) continue;
+    const v = parseFloat(document.getElementById(`pkg_${u.id}_val`).value);
+    if (v === u.current) continue;
+    changes.push({type: 'usc_rate', band: u.band, new_rate: v / 100});
+  }
+
+  for (const b of PKG_USC_BANDS) {
+    if (!document.getElementById(`pkg_${b.id}`).checked) continue;
+    const v = parseInt(document.getElementById(`pkg_${b.id}_val`).value);
+    if (v <= 0) continue;
+    changes.push({type: 'usc_band', band: b.band, amount: v});
+  }
+
+  const resultsDiv = document.getElementById('pkg_results');
+
+  if (changes.length === 0) {
+    resultsDiv.innerHTML = '<div class="info-box">Select measures above to build a budget package. The cost will appear here.</div>';
+    if (pkgCostChart) { pkgCostChart.destroy(); pkgCostChart = null; }
+    if (pkgDistChart) { pkgDistChart.destroy(); pkgDistChart = null; }
+    return;
+  }
+
+  const result = costPackage(changes);
+
+  // Metrics
+  const costLabel = result.total_full_year >= 0 ? 'Cost' : 'Yield';
+  let html = '<div class="cols-3">';
+  html += `<div class="metric"><div class="value">${fmtM(result.total_first_year)}</div><div class="label">First Year ${costLabel}</div></div>`;
+  html += `<div class="metric"><div class="value">${fmtM(result.total_full_year)}</div><div class="label">Full Year ${costLabel}</div></div>`;
+  html += `<div class="metric"><div class="value">${result.items.length}</div><div class="label">Measures</div></div>`;
+  html += '</div>';
+
+  // Detail table
+  html += '<table class="data" style="margin-top:16px"><tr><th>Measure</th><th class="num">First Year (\u20ACm)</th><th class="num">Full Year (\u20ACm)</th><th>Direction</th></tr>';
+  for (const item of result.items) {
+    const dir = item.full_year > 0 ? 'Cost' : 'Yield';
+    html += `<tr><td>${item.description}</td><td class="num">${Math.abs(item.first_year).toLocaleString('en-IE', {maximumFractionDigits:1})}</td><td class="num">${Math.abs(item.full_year).toLocaleString('en-IE', {maximumFractionDigits:1})}</td><td>${dir}</td></tr>`;
+  }
+  const totalDir = result.total_full_year > 0 ? 'Cost' : 'Yield';
+  html += `<tr class="total"><td>TOTAL</td><td class="num">${Math.abs(result.total_first_year).toLocaleString('en-IE', {maximumFractionDigits:0})}</td><td class="num">${Math.abs(result.total_full_year).toLocaleString('en-IE', {maximumFractionDigits:0})}</td><td>${totalDir}</td></tr>`;
+  html += '</table>';
+
+  // Cost bar chart
+  html += '<div class="chart-container"><canvas id="pkgCostCanvas"></canvas></div>';
+
+  // Distributional analysis
+  html += '<hr class="divider"><h3 class="section">Who Benefits? &mdash; Distributional Analysis</h3>';
+  html += '<p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Average annual saving per person, by gross income band. Based on 2023 individual data (3.95M individuals) scaled to 2026 income levels.</p>';
+
+  const distResults = distributionalAnalysis(changes);
+  const nonZeroDist = distResults.filter(r => r.avg_saving !== 0);
+
+  if (nonZeroDist.length > 0) {
+    html += '<div class="cols"><div><div class="chart-container"><canvas id="pkgDistCanvas"></canvas></div></div><div>';
+    html += '<p style="font-weight:600;margin-bottom:8px">Per-person savings by income band</p>';
+    html += '<table class="data"><tr><th>Income Band</th><th class="num">Individuals</th><th class="num">Avg Saving (\u20AC)</th><th class="num">Total (\u20ACm)</th></tr>';
+    for (const r of nonZeroDist) {
+      html += `<tr><td>${r.band}</td><td class="num">${r.count.toLocaleString()}</td><td class="num">\u20AC${r.avg_saving.toLocaleString()}</td><td class="num">\u20AC${r.total_saving.toFixed(1)}m</td></tr>`;
+    }
+    html += '</table>';
+    const maxBand = nonZeroDist.reduce((a, b) => a.avg_saving > b.avg_saving ? a : b);
+    html += `<p style="margin-top:8px"><strong>Largest per-person benefit:</strong> ${maxBand.band} (\u20AC${maxBand.avg_saving.toLocaleString()}/year)</p>`;
+    html += '</div></div>';
+  } else {
+    html += '<div class="info-box">No distributional impact for the selected measures.</div>';
+  }
+
+  resultsDiv.innerHTML = html;
+
+  // Render cost chart
+  const costCanvas = document.getElementById('pkgCostCanvas');
+  if (costCanvas) {
+    if (pkgCostChart) pkgCostChart.destroy();
+    pkgCostChart = new Chart(costCanvas, {
+      type: 'bar',
+      data: {
+        labels: result.items.map(i => i.description),
+        datasets: [{
+          label: 'Full Year (\u20ACm)',
+          data: result.items.map(i => Math.abs(i.full_year)),
+          backgroundColor: '#006D5B',
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        plugins: {legend: {display: false}},
+        scales: {x: {title: {display: true, text: 'Full Year Cost (\u20ACm)'}}},
+      },
+    });
+  }
+
+  // Render dist chart
+  const distCanvas = document.getElementById('pkgDistCanvas');
+  if (distCanvas && nonZeroDist.length > 0) {
+    if (pkgDistChart) pkgDistChart.destroy();
+    pkgDistChart = new Chart(distCanvas, {
+      type: 'bar',
+      data: {
+        labels: nonZeroDist.map(r => r.band),
+        datasets: [{
+          label: 'Avg Saving (\u20AC/year)',
+          data: nonZeroDist.map(r => r.avg_saving),
+          backgroundColor: '#006D5B',
+        }],
+      },
+      options: {
+        responsive: true,
+        plugins: {legend: {display: false}},
+        scales: {y: {title: {display: true, text: 'Avg Saving (\u20AC/year)'}}},
+      },
+    });
+  }
+}
+
+// ============================================================
+// TAB 2: TAKE-HOME CALCULATOR
+// ============================================================
+
+let thChartInstance = null;
+
+function thUpdate() {
+  document.getElementById('th_usc3_disp').textContent = parseFloat(document.getElementById('th_usc3').value).toFixed(2) + '%';
+
+  const gross = Math.max(0, parseInt(document.getElementById('th_gross').value) || 0);
+  const status = document.getElementById('th_status').value;
+  const emp = document.getElementById('th_emp').value;
+  const bandChg = parseInt(document.getElementById('th_band_chg').value) || 0;
+  const creditChg = parseInt(document.getElementById('th_credit_chg').value) || 0;
+  const empCreditChg = parseInt(document.getElementById('th_emp_credit_chg').value) || 0;
+  const usc3New = parseFloat(document.getElementById('th_usc3').value);
+
+  const resultsDiv = document.getElementById('th_results');
+  if (gross <= 0) { resultsDiv.innerHTML = ''; return; }
+
+  const current = calcTakeHome(gross, status, emp);
+  const hasChanges = bandChg > 0 || creditChg > 0 || empCreditChg > 0 || usc3New !== 3.0;
+
+  let propIT = null, propUSC = null, proposed = null;
+  if (hasChanges) {
+    propIT = defaultIT();
+    propIT.single_band += bandChg;
+    propIT.married_one_earner_band += bandChg;
+    propIT.married_two_earner_band += bandChg;
+    propIT.single_person_credit += creditChg;
+    propIT.married_credit += creditChg * 2;
+    propIT.widowed_credit += creditChg;
+    if (emp === 'paye') propIT.employee_credit += empCreditChg;
+    else propIT.earned_income_credit += empCreditChg;
+
+    propUSC = defaultUSC();
+    propUSC.band3_rate = usc3New / 100;
+
+    proposed = calcTakeHome(gross, status, emp, propIT, propUSC);
+  }
+
+  let html = '';
+  if (proposed) {
+    html += '<table class="data"><tr><th>Item</th><th class="num">Current</th><th class="num">Proposed</th><th class="num">Change</th></tr>';
+    const rows = [
+      ['Gross Income', 'gross'], ['Income Tax', 'income_tax'], ['USC', 'usc'],
+      ['PRSI', 'prsi'], ['Total Deductions', 'total_deductions'], ['Net Take-Home', 'net_pay'],
+    ];
+    for (const [label, key] of rows) {
+      const diff = proposed[key] - current[key];
+      html += `<tr><td>${label}</td><td class="num">${fmtE(current[key])}</td><td class="num">${fmtE(proposed[key])}</td><td class="num">${diff >= 0 ? '+' : ''}${fmtE(diff)}</td></tr>`;
+    }
+    html += `<tr><td>Effective Rate</td><td class="num">${current.effective_rate}%</td><td class="num">${proposed.effective_rate}%</td><td class="num">${(proposed.effective_rate - current.effective_rate) >= 0 ? '+' : ''}${(proposed.effective_rate - current.effective_rate).toFixed(1)}pp</td></tr>`;
+    html += `<tr><td>Marginal Rate</td><td class="num">${current.marginal_rate}%</td><td class="num">${proposed.marginal_rate}%</td><td class="num">${(proposed.marginal_rate - current.marginal_rate) >= 0 ? '+' : ''}${(proposed.marginal_rate - current.marginal_rate).toFixed(1)}pp</td></tr>`;
+    html += '</table>';
+
+    const saving = proposed.net_pay - current.net_pay;
+    if (saving > 0) {
+      html += `<div class="success-box">You would save <strong>${fmtE(saving)}/year</strong> (${fmtE(saving/12)}/month) under the proposed changes.</div>`;
+    } else if (saving < 0) {
+      html += `<div class="warning-box">You would pay <strong>${fmtE(Math.abs(saving))}/year</strong> more under the proposed changes.</div>`;
+    }
+  } else {
+    html += '<h3 class="section">Your 2026 Payslip</h3>';
+    html += '<div class="cols" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px">';
+    html += `<div class="metric"><div class="value">${fmtE0(current.net_pay)}</div><div class="label">Net Take-Home</div></div>`;
+    html += `<div class="metric"><div class="value">${fmtE0(current.net_pay/12)}</div><div class="label">Monthly Net</div></div>`;
+    html += `<div class="metric"><div class="value">${current.effective_rate}%</div><div class="label">Effective Rate</div></div>`;
+    html += `<div class="metric"><div class="value">${current.marginal_rate}%</div><div class="label">Marginal Rate</div></div>`;
+    html += '</div>';
+    html += '<table class="data"><tr><th>Item</th><th class="num">Annual</th><th class="num">Monthly</th></tr>';
+    const payslipRows = [
+      ['Gross Income', current.gross, 1],
+      ['Income Tax', current.income_tax, -1],
+      ['USC', current.usc, -1],
+      ['PRSI', current.prsi, -1],
+      ['Total Deductions', current.total_deductions, -1],
+      ['Net Take-Home', current.net_pay, 1],
+    ];
+    for (const [label, val, sign] of payslipRows) {
+      const prefix = sign < 0 ? '-' : '';
+      html += `<tr><td>${label}</td><td class="num">${prefix}${fmtE(Math.abs(val))}</td><td class="num">${prefix}${fmtE(Math.abs(val/12))}</td></tr>`;
+    }
+    html += '</table>';
+  }
+  resultsDiv.innerHTML = html;
+
+  // Effective rate chart
+  const incomes = [];
+  for (let i = 10000; i <= 200000; i += 5000) incomes.push(i);
+  const currentRates = incomes.map(inc => calcTakeHome(inc, status, emp).effective_rate);
+
+  const datasets = [{
+    label: 'Current',
+    data: currentRates,
+    borderColor: '#006D5B',
+    backgroundColor: 'transparent',
+    tension: 0.3,
+  }];
+
+  if (hasChanges) {
+    const proposedRates = incomes.map(inc => calcTakeHome(inc, status, emp, propIT, propUSC).effective_rate);
+    datasets.push({
+      label: 'Proposed',
+      data: proposedRates,
+      borderColor: '#ffc107',
+      backgroundColor: 'transparent',
+      borderDash: [5, 5],
+      tension: 0.3,
+    });
+  }
+
+  if (thChartInstance) thChartInstance.destroy();
+  thChartInstance = new Chart(document.getElementById('thChart'), {
+    type: 'line',
+    data: {
+      labels: incomes.map(i => '\u20AC' + (i/1000) + 'k'),
+      datasets,
+    },
+    options: {
+      responsive: true,
+      plugins: {legend: {display: hasChanges}},
+      scales: {
+        y: {title: {display: true, text: 'Effective Rate (%)'}, min: 0},
+        x: {title: {display: true, text: 'Gross Income'}},
+      },
+    },
+  });
+}
+
+// ============================================================
+// TAB 3: USC EXPLORER
+// ============================================================
+
+function uscExplUpdate() {
+  const bandNum = parseInt(document.getElementById('usc_rate_band').value);
+  const currentRates = {1: 0.005, 2: 0.02, 3: 0.03, 4: 0.08};
+  const currentRate = currentRates[bandNum];
+
+  let testRates;
+  if (bandNum === 1) testRates = [0.0, 0.1, 0.2, 0.3, 0.4];
+  else if (bandNum === 2) testRates = [0.0, 0.5, 1.0, 1.5];
+  else if (bandNum === 3) testRates = [0.0, 0.5, 1.0, 1.5, 2.0, 2.5];
+  else testRates = [4.0, 5.0, 6.0, 7.0];
+
+  let html = '<table class="data"><tr><th>New Rate</th><th class="num">Change</th><th class="num">Full Year (\u20ACm)</th><th>Direction</th></tr>';
+  for (const r of testRates) {
+    const baseline = defaultUSC();
+    const counter = defaultUSC();
+    counter[BAND_ATTR[bandNum]] = r / 100;
+    const res = costUSCChange(baseline, counter);
+    const dir = res.full_year_cost > 0 ? 'Cost' : 'Yield';
+    const change = ((r / 100 - currentRate) * 100).toFixed(1);
+    html += `<tr><td>${r.toFixed(1)}%</td><td class="num">${change >= 0 ? '+' : ''}${change}pp</td><td class="num">${Math.abs(res.full_year_cost).toLocaleString()}</td><td>${dir}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('usc_rate_table').innerHTML = html;
+}
+
+function uscBandExplUpdate() {
+  const bandKey = document.getElementById('usc_band_type').value;
+  const testAmounts = [500, 1000, 1500, 2000, 3000, 5000];
+
+  let html = '<table class="data"><tr><th>Increase</th><th class="num">First Year (\u20ACm)</th><th class="num">Full Year (\u20ACm)</th></tr>';
+  for (const amt of testAmounts) {
+    const res = costUSCBandChange(bandKey, amt);
+    html += `<tr><td>+\u20AC${amt.toLocaleString()}</td><td class="num">${res.first_year.toFixed(1)}</td><td class="num">${res.full_year.toFixed(1)}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('usc_band_table').innerHTML = html;
+}
+
+// ============================================================
+// TAB 4: INCOME TAX EXPLORER
+// ============================================================
+
+function itExplUpdate() {
+  const rate = document.getElementById('it_rate_sel').value;
+  const chg = parseFloat(document.getElementById('it_rate_chg').value);
+  document.getElementById('it_rate_chg_disp').textContent = chg.toFixed(1) + 'pp';
+
+  const container = document.getElementById('it_rate_result');
+  if (chg === 0) { container.innerHTML = ''; return; }
+
+  const r = costITRateChange(rate, chg);
+  const label = r.full_year > 0 ? 'Cost' : 'Yield';
+  container.innerHTML = `
+    <div class="cols" style="grid-template-columns:1fr 1fr;margin-top:12px">
+      <div class="metric"><div class="value">${fmtM(r.full_year)}</div><div class="label">Full Year ${label}</div></div>
+      <div class="metric"><div class="value">${fmtM(r.first_year)}</div><div class="label">First Year</div></div>
+    </div>`;
+}
+
+function itBandExplUpdate() {
+  const inc = parseInt(document.getElementById('it_band_exp').value);
+  document.getElementById('it_band_exp_disp').textContent = '\u20AC' + inc.toLocaleString();
+
+  const container = document.getElementById('it_band_table');
+  if (inc <= 0) { container.innerHTML = ''; return; }
+
+  const detail = costITBandChangeDetail(inc);
+  const total = costITBandChange(inc);
+
+  let html = '<table class="data"><tr><th>Category</th><th class="num">First Year (\u20ACm)</th><th class="num">Full Year (\u20ACm)</th></tr>';
+  html += `<tr><td>Single / Widowed</td><td class="num">${detail.single.first_year}</td><td class="num">${detail.single.full_year}</td></tr>`;
+  html += `<tr><td>Married (one earner)</td><td class="num">${detail.married_one_earner.first_year}</td><td class="num">${detail.married_one_earner.full_year}</td></tr>`;
+  html += `<tr><td>Married (two earners)</td><td class="num">${detail.married_two_earner.first_year}</td><td class="num">${detail.married_two_earner.full_year}</td></tr>`;
+  html += `<tr class="total"><td>TOTAL</td><td class="num">${total.first_year}</td><td class="num">${total.full_year}</td></tr>`;
+  html += '</table>';
+  container.innerHTML = html;
+}
+
+// ============================================================
+// TAB 5: TAX CREDITS EXPLORER
+// ============================================================
+
+function creditExplUpdate() {
+  const credit = document.getElementById('credit_sel').value;
+  const amt = parseInt(document.getElementById('credit_amt').value);
+  document.getElementById('credit_amt_disp').textContent = '\u20AC' + amt;
+
+  const container = document.getElementById('credit_result');
+  if (amt <= 0) { container.innerHTML = ''; return; }
+
+  const r = costCreditChange(credit, amt);
+  container.innerHTML = `
+    <div class="cols" style="grid-template-columns:1fr 1fr">
+      <div class="metric"><div class="value">${fmtM1(r.first_year)}</div><div class="label">First Year Cost</div></div>
+      <div class="metric"><div class="value">${fmtM1(r.full_year)}</div><div class="label">Full Year Cost</div></div>
+    </div>`;
+}
+
+function buildCreditAllTable() {
+  const ALL_CREDITS = [
+    ['Single Person', 'single_person', 100],
+    ['Married', 'married', 200],
+    ['Employee (PAYE)', 'employee', 50],
+    ['Earned Income', 'earned_income', 50],
+    ['Home Carer', 'home_carer', 50],
+    ['Age', 'age', 50],
+    ['Rent', 'rent', 100],
+    ['Widowed Person', 'widowed', 100],
+    ['Single Person Child Carer', 'single_person_child_carer', 100],
+    ['Incapacitated Child', 'incapacitated_child', 100],
+    ['Dependent Relative', 'dependent_relative', 100],
+    ['Blind Persons', 'blind_persons', 100],
+    ['Widowed Parent Bereavement', 'widowed_parent_bereavement', 100],
+  ];
+
+  let html = '<table class="data"><tr><th>Credit</th><th class="num">Unit Increase</th><th class="num">First Year (\u20ACm)</th><th class="num">Full Year (\u20ACm)</th></tr>';
+  for (const [label, key, unit] of ALL_CREDITS) {
+    const r = costCreditChange(key, unit);
+    html += `<tr><td>${label}</td><td class="num">\u20AC${unit}</td><td class="num">${r.first_year.toFixed(1)}</td><td class="num">${r.full_year.toFixed(1)}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('credit_all_table').innerHTML = html;
+}
+
+// ============================================================
+// TAB 6: INDEXATION
+// ============================================================
+
+function idxUpdate() {
+  const pct = parseFloat(document.getElementById('idx_pct').value);
+  document.getElementById('idx_pct_disp').textContent = pct.toFixed(1) + '%';
+
+  const container = document.getElementById('idx_results');
+  if (pct <= 0) { container.innerHTML = ''; return; }
+
+  const res = costIndexation(pct);
+  let totalFY = 0, totalFull = 0;
+
+  let html = '<table class="data"><tr><th>Component</th><th class="num">First Year (\u20ACm)</th><th class="num">Full Year (\u20ACm)</th></tr>';
+  for (const [desc, vals] of Object.entries(res)) {
+    html += `<tr><td>${desc}</td><td class="num">${vals.first_year.toFixed(1)}</td><td class="num">${vals.full_year.toFixed(1)}</td></tr>`;
+    totalFY += vals.first_year;
+    totalFull += vals.full_year;
+  }
+  html += `<tr class="total"><td>TOTAL</td><td class="num">${totalFY.toFixed(1)}</td><td class="num">${totalFull.toFixed(1)}</td></tr>`;
+  html += '</table>';
+
+  html += `<div class="cols" style="grid-template-columns:1fr 1fr;margin-top:16px">
+    <div class="metric"><div class="value">${fmtM(totalFY)}</div><div class="label">Total First Year (${pct}%)</div></div>
+    <div class="metric"><div class="value">${fmtM(totalFull)}</div><div class="label">Total Full Year (${pct}%)</div></div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+// ============================================================
+// TAB 7: INCOME DISTRIBUTION
+// ============================================================
+
+let distChartInstance = null;
+
+function buildDistTab() {
+  let html = '<div style="max-height:700px;overflow-y:auto"><table class="data"><tr><th>Income Range</th><th class="num">Taxpayer Units</th><th class="num">Total Income (\u20ACm)</th><th class="num">IT + USC (\u20ACm)</th><th class="num">Avg Income</th><th class="num">Effective Rate</th></tr>';
+  for (const [lower, upper, units, incomeM, taxM] of TAXPAYER_UNITS_2026) {
+    const upperLabel = upper < 550000 ? '\u20AC' + upper.toLocaleString() : '\u2014';
+    const avgInc = units > 0 ? '\u20AC' + Math.round(incomeM * 1e6 / units).toLocaleString() : '\u2014';
+    const effRate = incomeM > 0 ? (taxM / incomeM * 100).toFixed(1) + '%' : '\u2014';
+    html += `<tr><td>\u20AC${lower.toLocaleString()} \u2013 ${upperLabel}</td><td class="num">${units.toLocaleString()}</td><td class="num">${incomeM.toLocaleString()}</td><td class="num">${taxM.toLocaleString()}</td><td class="num">${avgInc}</td><td class="num">${effRate}</td></tr>`;
+  }
+  html += '</table></div>';
+  document.getElementById('dist_table').innerHTML = html;
+
+  // Chart
+  const labels = TAXPAYER_UNITS_2026.map(r => r[1] < 550000 ? `\u20AC${r[0]/1000}k\u2013\u20AC${r[1]/1000}k` : `\u20AC${r[0]/1000}k+`);
+  const data = TAXPAYER_UNITS_2026.map(r => r[2]);
+
+  if (distChartInstance) distChartInstance.destroy();
+  distChartInstance = new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{label: 'Taxpayer Units', data, backgroundColor: '#006D5B'}],
+    },
+    options: {
+      responsive: true,
+      plugins: {legend: {display: false}},
+      scales: {
+        y: {title: {display: true, text: 'Taxpayer Units'}},
+        x: {ticks: {maxRotation: 90, minRotation: 45, font: {size: 10}}},
+      },
+    },
+  });
+}
+
+// ============================================================
+// INIT
+// ============================================================
+
+pkgUpdate();
+thUpdate();
+uscExplUpdate();
+uscBandExplUpdate();
+itExplUpdate();
+itBandExplUpdate();
+creditExplUpdate();
+buildCreditAllTable();
+idxUpdate();
+buildDistTab();
+</script>
+</body>
+</html>
