@@ -1050,6 +1050,201 @@ def validate():
 
 
 # ============================================================
+# CAPITAL GAINS TAX (CGT)
+# ============================================================
+
+# Current CGT parameters (2026)
+CGT_RATE = 0.33
+CGT_ANNUAL_EXEMPTION = 1_270
+CGT_ENTREPRENEUR_RATE = 0.10
+CGT_ENTREPRENEUR_LIFETIME_LIMIT = 1_500_000  # increased to €1.5m from 2026
+
+# Ready Reckoner data: CGT rate changes (full year, €m)
+# Negative = costs exchequer (rate cut), positive = yields (rate increase)
+CGT_RATE_DATA = {
+    # rate -> full_year_€m
+    32: -87, 31: -175, 28: -436,
+    34: 87, 35: 175, 38: 436,
+}
+
+# Entrepreneur relief lifetime limit changes (full year cost, €m)
+# Current limit is €1m (but raised to €1.5m for 2026 disposals)
+CGT_ENTREPRENEUR_LIMIT_DATA = [
+    (1.5, 31), (2, 54), (2.5, 71), (5, 117),
+    (7.5, 135), (10, 144), (12.5, 146), (15, 147),
+]
+
+
+def cost_cgt_rate_change(new_rate_pct):
+    """
+    Cost/yield of changing CGT rate from 33%.
+
+    new_rate_pct: new rate as percentage (e.g. 30 for 30%)
+    Returns: dict with full_year_€m (negative = costs, positive = yields)
+    """
+    if new_rate_pct == 33:
+        return {'full_year_€m': 0}
+
+    # Known data points from Ready Reckoner
+    rates = sorted(CGT_RATE_DATA.keys())
+    vals = [CGT_RATE_DATA[r] for r in rates]
+
+    if new_rate_pct in CGT_RATE_DATA:
+        return {'full_year_€m': CGT_RATE_DATA[new_rate_pct]}
+
+    # Interpolate
+    cost = float(np.interp(new_rate_pct, rates, vals))
+    return {'full_year_€m': round(cost, 1)}
+
+
+def cost_cgt_entrepreneur_limit(new_limit_m):
+    """
+    Cost of increasing entrepreneur relief lifetime limit.
+
+    new_limit_m: new limit in € million (e.g. 2 for €2m)
+    Current limit is €1m.
+    Returns: dict with full_year_€m
+    """
+    if new_limit_m <= 1:
+        return {'full_year_€m': 0}
+
+    limits = [p[0] for p in CGT_ENTREPRENEUR_LIMIT_DATA]
+    costs = [p[1] for p in CGT_ENTREPRENEUR_LIMIT_DATA]
+
+    cost = float(np.interp(new_limit_m, limits, costs))
+    return {'full_year_€m': round(cost, 1)}
+
+
+# ============================================================
+# CAPITAL ACQUISITIONS TAX (CAT)
+# ============================================================
+
+# Current CAT parameters (2026)
+CAT_RATE = 0.33
+CAT_GROUP_A_THRESHOLD = 400_000  # parent to child
+CAT_GROUP_B_THRESHOLD = 40_000   # sibling, grandchild, etc.
+CAT_GROUP_C_THRESHOLD = 20_000   # other relationships
+CAT_SMALL_GIFT_EXEMPTION = 3_000
+CAT_AGRICULTURAL_RELIEF = 0.90   # 90% reduction
+CAT_BUSINESS_RELIEF = 0.90       # 90% reduction
+
+# Ready Reckoner: CAT rate changes (full year, €m)
+CAT_RATE_DATA = {
+    32: -28.2, 30: -84.5, 28: -140.9, 23: -281.8,
+    34: 28.2, 36: 84.5, 38: 140.9, 43: 281.8,
+}
+
+# Ready Reckoner: CAT relief changes (full year, €m — positive = yields for exchequer)
+CAT_AGRICULTURAL_RELIEF_DATA = {
+    # new_relief_pct -> yield_€m
+    80: 11.6, 70: 28.7, 60: 50.3, 50: 75.2,
+}
+
+CAT_BUSINESS_RELIEF_DATA = {
+    80: 27.5, 70: 58.6, 60: 91.0, 50: 124.7,
+}
+
+# Ready Reckoner: Combined rate × threshold matrix (full year, €m)
+# CAT_THRESHOLD_MATRIX[group][rate_pct][threshold] = cost_€m
+# Positive = costs exchequer, negative = yields
+CAT_THRESHOLD_MATRIX = {
+    'A': {
+        43: {280000: 261.3, 335000: 197.2, 350000: 179.7, 400000: 121.5, 425000: 92.3, 450000: 63.2, 500000: 8.7, 600000: -69.3},
+        38: {280000: 184.3, 335000: 127.7, 350000: 112.2, 400000: 60.7, 425000: 35.0, 450000: 9.2, 500000: -38.9, 600000: -107.9},
+        36: {280000: 153.5, 335000: 99.9, 350000: 85.2, 400000: 36.4, 425000: 12.0, 450000: -12.3, 500000: -58.0, 600000: -123.3},
+        34: {280000: 122.7, 335000: 72.0, 350000: 58.2, 400000: 12.1, 425000: -10.9, 450000: -33.9, 500000: -77.0, 600000: -138.7},
+        33: {280000: 107.3, 335000: 58.1, 350000: 44.7, 400000: 0, 425000: -22.4, 450000: -44.7, 500000: -86.6, 600000: -146.4},
+        32: {280000: 91.9, 335000: 44.2, 350000: 31.2, 400000: -12.1, 425000: -33.8, 450000: -55.5, 500000: -96.1, 600000: -154.1},
+        30: {280000: 61.1, 335000: 16.4, 350000: 4.2, 400000: -36.4, 425000: -56.8, 450000: -77.1, 500000: -115.1, 600000: -169.6},
+        28: {280000: 30.3, 335000: -11.4, 350000: -22.8, 400000: -60.7, 425000: -79.7, 450000: -98.7, 500000: -134.2, 600000: -185.0},
+        23: {280000: -46.7, 335000: -80.9, 350000: -90.3, 400000: -121.5, 425000: -137.0, 450000: -152.6, 500000: -181.8, 600000: -223.5},
+    },
+    'B': {
+        43: {25000: 201.6, 32500: 164.7, 35000: 152.4, 40000: 127.8, 43000: 113.0, 45000: 103.1, 50000: 78.8, 60000: 36.3},
+        38: {25000: 129.2, 32500: 96.5, 35000: 85.6, 40000: 63.9, 43000: 50.8, 45000: 42.1, 50000: 20.6, 60000: -16.9},
+        36: {25000: 100.2, 32500: 69.3, 35000: 58.9, 40000: 38.3, 43000: 26.0, 45000: 17.7, 50000: -2.7, 60000: -38.2},
+        34: {25000: 71.2, 32500: 42.0, 35000: 32.2, 40000: 12.8, 43000: 1.1, 45000: -6.7, 50000: -26.0, 60000: -59.5},
+        33: {25000: 56.7, 32500: 28.3, 35000: 18.9, 40000: 0, 43000: -11.3, 45000: -19.0, 50000: -37.6, 60000: -70.1},
+        32: {25000: 42.2, 32500: 14.7, 35000: 5.5, 40000: -12.8, 43000: -23.8, 45000: -31.1, 50000: -49.2, 60000: -80.8},
+        30: {25000: 13.2, 32500: -12.6, 35000: -21.1, 40000: -38.3, 43000: -48.6, 45000: -55.5, 50000: -72.5, 60000: -102.1},
+        28: {25000: -15.8, 32500: -39.8, 35000: -47.8, 40000: -63.9, 43000: -73.5, 45000: -79.9, 50000: -95.8, 60000: -123.4},
+        23: {25000: -88.2, 32500: -108.0, 35000: -114.6, 40000: -127.8, 43000: -135.7, 45000: -140.9, 50000: -154.0, 60000: -176.7},
+    },
+    'C': {
+        43: {10000: 51.3, 16250: 39.6, 20000: 32.6, 23000: 27.0, 25000: 23.4, 30000: 15.5, 32000: 12.6, 37000: 6.1},
+        38: {10000: 32.8, 16250: 22.5, 20000: 16.3, 23000: 11.4, 25000: 8.2, 30000: 1.2, 32000: -1.4, 37000: -7.2},
+        36: {10000: 25.4, 16250: 15.6, 20000: 9.8, 23000: 5.1, 25000: 2.1, 30000: -4.6, 32000: -7.0, 37000: -12.4},
+        34: {10000: 18.0, 16250: 8.8, 20000: 3.3, 23000: -1.2, 25000: -4.0, 30000: -10.3, 32000: -12.6, 37000: -17.7},
+        33: {10000: 14.3, 16250: 5.4, 20000: 0, 23000: -4.3, 25000: -7.0, 30000: -13.2, 32000: -15.4, 37000: -20.4},
+        32: {10000: 10.6, 16250: 1.9, 20000: -3.3, 23000: -7.4, 25000: -10.1, 30000: -16.0, 32000: -18.2, 37000: -23.0},
+        30: {10000: 3.2, 16250: -4.9, 20000: -9.8, 23000: -13.4, 25000: -16.2, 30000: -21.7, 32000: -23.8, 37000: -28.3},
+        28: {10000: -4.1, 16250: -11.7, 20000: -16.3, 23000: -19.4, 25000: -22.3, 30000: -27.5, 32000: -29.3, 37000: -33.6},
+        23: {10000: -22.6, 16250: -28.9, 20000: -32.6, 23000: -35.6, 25000: -37.5, 30000: -41.8, 32000: -43.3, 37000: -46.8},
+    },
+}
+
+
+def cost_cat_rate_change(new_rate_pct):
+    """Cost/yield of changing CAT rate from 33%."""
+    if new_rate_pct == 33:
+        return {'full_year_€m': 0}
+
+    rates = sorted(CAT_RATE_DATA.keys())
+    vals = [CAT_RATE_DATA[r] for r in rates]
+
+    if new_rate_pct in CAT_RATE_DATA:
+        return {'full_year_€m': CAT_RATE_DATA[new_rate_pct]}
+
+    cost = float(np.interp(new_rate_pct, rates, vals))
+    return {'full_year_€m': round(cost, 1)}
+
+
+def cost_cat_threshold_change(group, new_rate_pct, new_threshold):
+    """
+    Cost of combined CAT rate and threshold change.
+
+    group: 'A', 'B', or 'C'
+    new_rate_pct: new rate as percentage (e.g. 33)
+    new_threshold: new threshold in euros
+
+    Returns: dict with full_year_€m (positive = costs, negative = yields)
+    """
+    matrix = CAT_THRESHOLD_MATRIX[group]
+    if new_rate_pct not in matrix:
+        # Interpolate between available rates
+        available_rates = sorted(matrix.keys())
+        # Get cost at the current threshold for interpolation
+        return {'full_year_€m': 0, 'note': f'Rate {new_rate_pct}% not in matrix'}
+
+    thresholds = sorted(matrix[new_rate_pct].keys())
+    costs = [matrix[new_rate_pct][t] for t in thresholds]
+
+    cost = float(np.interp(new_threshold, thresholds, costs))
+    return {'full_year_€m': round(cost, 1)}
+
+
+def cost_cat_relief_change(relief_type, new_relief_pct):
+    """
+    Yield from reducing agricultural or business relief.
+
+    relief_type: 'agricultural' or 'business'
+    new_relief_pct: new relief percentage (e.g. 80 for 80%)
+
+    Returns: dict with full_year_€m (positive = yields for exchequer)
+    """
+    data = CAT_AGRICULTURAL_RELIEF_DATA if relief_type == 'agricultural' else CAT_BUSINESS_RELIEF_DATA
+
+    if new_relief_pct >= 90:
+        return {'full_year_€m': 0}
+
+    reliefs = sorted(data.keys(), reverse=True)
+    yields = [data[r] for r in reliefs]
+
+    y = float(np.interp(new_relief_pct, reliefs[::-1], yields[::-1]))
+    return {'full_year_€m': round(y, 1)}
+
+
+# ============================================================
 # MAIN
 # ============================================================
 

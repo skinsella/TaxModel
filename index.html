@@ -130,6 +130,23 @@ table.data tr.total td { font-weight: 700; border-top: 2px solid var(--primary);
     <tr><td>Employee (PAYE)</td><td>&euro;2,000</td></tr>
     <tr><td>Earned Income</td><td>&euro;2,000</td></tr>
   </table>
+  <h3>Capital Gains Tax</h3>
+  <table><tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>Rate</td><td>33%</td></tr>
+    <tr><td>Annual Exemption</td><td>&euro;1,270</td></tr>
+    <tr><td>Entrepreneur Rate</td><td>10%</td></tr>
+    <tr><td>Entrepreneur Limit</td><td>&euro;1m</td></tr>
+  </table>
+  <h3>Capital Acquisitions Tax</h3>
+  <table><tr><th>Parameter</th><th>Value</th></tr>
+    <tr><td>Rate</td><td>33%</td></tr>
+    <tr><td>Group A Threshold</td><td>&euro;400,000</td></tr>
+    <tr><td>Group B Threshold</td><td>&euro;40,000</td></tr>
+    <tr><td>Group C Threshold</td><td>&euro;20,000</td></tr>
+    <tr><td>Small Gift Exemption</td><td>&euro;3,000</td></tr>
+    <tr><td>Agricultural Relief</td><td>90%</td></tr>
+    <tr><td>Business Relief</td><td>90%</td></tr>
+  </table>
   <p style="margin-top:8px;font-size:13px"><strong>Taxpayer Units:</strong> 3,493,400</p>
   <p style="font-size:13px"><strong>Total Income:</strong> &euro;185.4bn</p>
   <hr class="divider">
@@ -148,6 +165,7 @@ table.data tr.total td { font-weight: 700; border-top: 2px solid var(--primary);
     <button class="tab-btn" data-tab="credits">Tax Credits</button>
     <button class="tab-btn" data-tab="indexation">Indexation</button>
     <button class="tab-btn" data-tab="dist">Income Distribution</button>
+    <button class="tab-btn" data-tab="capital">Capital Taxes</button>
   </nav>
 
   <!-- ============================================================ -->
@@ -400,6 +418,97 @@ table.data tr.total td { font-weight: 700; border-top: 2px solid var(--primary);
     <div id="dist_table"></div>
     <h3 class="section" style="margin-top:20px">Taxpayer Units by Income Range</h3>
     <div class="chart-container"><canvas id="distChart"></canvas></div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB 8: CAPITAL TAXES (CGT & CAT) -->
+  <!-- ============================================================ -->
+  <div class="tab-panel" id="tab-capital">
+    <h2 class="section">Capital Taxes</h2>
+    <p style="margin-bottom:16px">Explore the Exchequer cost of changes to Capital Gains Tax (CGT) and Capital Acquisitions Tax (CAT). All figures from Revenue Ready Reckoner Post-Budget 2026.</p>
+
+    <div class="cols">
+      <!-- LEFT: CGT -->
+      <div>
+        <h3 class="section">Capital Gains Tax (CGT)</h3>
+        <div class="info-box">Current rate: 33%. Annual exemption: &euro;1,270. Entrepreneur relief: 10% (lifetime limit &euro;1m).</div>
+
+        <h3 class="section" style="margin-top:16px">CGT Rate Change</h3>
+        <div class="slider-row" style="margin-left:0">
+          <label>New CGT rate (%)</label>
+          <input type="range" min="23" max="43" value="33" step="1" id="cgt_rate" oninput="cgtRateUpdate()">
+          <span class="val" id="cgt_rate_disp">33%</span>
+        </div>
+        <div id="cgt_rate_result"></div>
+
+        <hr class="divider">
+        <h3 class="section">Entrepreneur Relief Lifetime Limit</h3>
+        <div class="slider-row" style="margin-left:0">
+          <label>New limit (&euro;m)</label>
+          <input type="range" min="1" max="15" value="1" step="0.5" id="cgt_ent_limit" oninput="cgtEntUpdate()">
+          <span class="val" id="cgt_ent_limit_disp">&euro;1m</span>
+        </div>
+        <div id="cgt_ent_result"></div>
+
+        <hr class="divider">
+        <h3 class="section">CGT Rate Sensitivity</h3>
+        <div id="cgt_sensitivity_table"></div>
+        <div class="chart-container"><canvas id="cgtRateChart"></canvas></div>
+      </div>
+
+      <!-- RIGHT: CAT -->
+      <div>
+        <h3 class="section">Capital Acquisitions Tax (CAT)</h3>
+        <div class="info-box">Current rate: 33%. Thresholds &mdash; Group A: &euro;400k, Group B: &euro;40k, Group C: &euro;20k. Agricultural &amp; business relief: 90%.</div>
+
+        <h3 class="section" style="margin-top:16px">CAT Rate Change</h3>
+        <div class="slider-row" style="margin-left:0">
+          <label>New CAT rate (%)</label>
+          <input type="range" min="23" max="43" value="33" step="1" id="cat_rate" oninput="catRateUpdate()">
+          <span class="val" id="cat_rate_disp">33%</span>
+        </div>
+        <div id="cat_rate_result"></div>
+
+        <hr class="divider">
+        <h3 class="section">CAT Group Thresholds</h3>
+        <div class="field">
+          <label>Group</label>
+          <select id="cat_group" onchange="catThresholdUpdate()">
+            <option value="A">Group A (parent to child) &mdash; current &euro;400k</option>
+            <option value="B">Group B (sibling, grandchild) &mdash; current &euro;40k</option>
+            <option value="C">Group C (other) &mdash; current &euro;20k</option>
+          </select>
+        </div>
+        <div class="slider-row" style="margin-left:0">
+          <label>New rate (%)</label>
+          <select id="cat_matrix_rate" onchange="catThresholdUpdate()" style="max-width:120px">
+            <option value="23">23%</option><option value="28">28%</option><option value="30">30%</option>
+            <option value="32">32%</option><option value="33" selected>33%</option><option value="34">34%</option>
+            <option value="36">36%</option><option value="38">38%</option><option value="43">43%</option>
+          </select>
+        </div>
+        <div id="cat_threshold_table"></div>
+
+        <hr class="divider">
+        <h3 class="section">CAT Relief Changes</h3>
+        <div class="slider-row" style="margin-left:0">
+          <label>Agricultural relief (%)</label>
+          <input type="range" min="50" max="90" value="90" step="5" id="cat_agri_relief" oninput="catReliefUpdate()">
+          <span class="val" id="cat_agri_relief_disp">90%</span>
+        </div>
+        <div class="slider-row" style="margin-left:0">
+          <label>Business relief (%)</label>
+          <input type="range" min="50" max="90" value="90" step="5" id="cat_biz_relief" oninput="catReliefUpdate()">
+          <span class="val" id="cat_biz_relief_disp">90%</span>
+        </div>
+        <div id="cat_relief_result"></div>
+
+        <hr class="divider">
+        <h3 class="section">CAT Rate Sensitivity</h3>
+        <div id="cat_sensitivity_table"></div>
+        <div class="chart-container"><canvas id="catRateChart"></canvas></div>
+      </div>
+    </div>
   </div>
 
 </div><!-- /main -->
@@ -1655,6 +1764,238 @@ function buildDistTab() {
 }
 
 // ============================================================
+// TAB 8: CAPITAL TAXES
+// ============================================================
+
+// CGT Ready Reckoner data
+const CGT_RATE_DATA = {28: -436, 31: -175, 32: -87, 34: 87, 35: 175, 38: 436};
+const CGT_ENTREPRENEUR_LIMIT_DATA = [[1.5, 31], [2, 54], [2.5, 71], [5, 117], [7.5, 135], [10, 144], [12.5, 146], [15, 147]];
+
+// CAT Ready Reckoner data
+const CAT_RATE_DATA = {23: -281.8, 28: -140.9, 30: -84.5, 32: -28.2, 34: 28.2, 36: 84.5, 38: 140.9, 43: 281.8};
+const CAT_AGRICULTURAL_RELIEF_DATA = {50: 75.2, 60: 50.3, 70: 28.7, 80: 11.6};
+const CAT_BUSINESS_RELIEF_DATA = {50: 124.7, 60: 91.0, 70: 58.6, 80: 27.5};
+
+const CAT_THRESHOLD_MATRIX = {
+  A: {
+    43: {280000: 261.3, 335000: 197.2, 350000: 179.7, 400000: 121.5, 425000: 92.3, 450000: 63.2, 500000: 8.7, 600000: -69.3},
+    38: {280000: 184.3, 335000: 127.7, 350000: 112.2, 400000: 60.7, 425000: 35.0, 450000: 9.2, 500000: -38.9, 600000: -107.9},
+    36: {280000: 153.5, 335000: 99.9, 350000: 85.2, 400000: 36.4, 425000: 12.0, 450000: -12.3, 500000: -58.0, 600000: -123.3},
+    34: {280000: 122.7, 335000: 72.0, 350000: 58.2, 400000: 12.1, 425000: -10.9, 450000: -33.9, 500000: -77.0, 600000: -138.7},
+    33: {280000: 107.3, 335000: 58.1, 350000: 44.7, 400000: 0, 425000: -22.4, 450000: -44.7, 500000: -86.6, 600000: -146.4},
+    32: {280000: 91.9, 335000: 44.2, 350000: 31.2, 400000: -12.1, 425000: -33.8, 450000: -55.5, 500000: -96.1, 600000: -154.1},
+    30: {280000: 61.1, 335000: 16.4, 350000: 4.2, 400000: -36.4, 425000: -56.8, 450000: -77.1, 500000: -115.1, 600000: -169.6},
+    28: {280000: 30.3, 335000: -11.4, 350000: -22.8, 400000: -60.7, 425000: -79.7, 450000: -98.7, 500000: -134.2, 600000: -185.0},
+    23: {280000: -46.7, 335000: -80.9, 350000: -90.3, 400000: -121.5, 425000: -137.0, 450000: -152.6, 500000: -181.8, 600000: -223.5},
+  },
+  B: {
+    43: {25000: 201.6, 32500: 164.7, 35000: 152.4, 40000: 127.8, 43000: 113.0, 45000: 103.1, 50000: 78.8, 60000: 36.3},
+    38: {25000: 129.2, 32500: 96.5, 35000: 85.6, 40000: 63.9, 43000: 50.8, 45000: 42.1, 50000: 20.6, 60000: -16.9},
+    36: {25000: 100.2, 32500: 69.3, 35000: 58.9, 40000: 38.3, 43000: 26.0, 45000: 17.7, 50000: -2.7, 60000: -38.2},
+    34: {25000: 71.2, 32500: 42.0, 35000: 32.2, 40000: 12.8, 43000: 1.1, 45000: -6.7, 50000: -26.0, 60000: -59.5},
+    33: {25000: 56.7, 32500: 28.3, 35000: 18.9, 40000: 0, 43000: -11.3, 45000: -19.0, 50000: -37.6, 60000: -70.1},
+    32: {25000: 42.2, 32500: 14.7, 35000: 5.5, 40000: -12.8, 43000: -23.8, 45000: -31.1, 50000: -49.2, 60000: -80.8},
+    30: {25000: 13.2, 32500: -12.6, 35000: -21.1, 40000: -38.3, 43000: -48.6, 45000: -55.5, 50000: -72.5, 60000: -102.1},
+    28: {25000: -15.8, 32500: -39.8, 35000: -47.8, 40000: -63.9, 43000: -73.5, 45000: -79.9, 50000: -95.8, 60000: -123.4},
+    23: {25000: -88.2, 32500: -108.0, 35000: -114.6, 40000: -127.8, 43000: -135.7, 45000: -140.9, 50000: -154.0, 60000: -176.7},
+  },
+  C: {
+    43: {10000: 51.3, 16250: 39.6, 20000: 32.6, 23000: 27.0, 25000: 23.4, 30000: 15.5, 32000: 12.6, 37000: 6.1},
+    38: {10000: 32.8, 16250: 22.5, 20000: 16.3, 23000: 11.4, 25000: 8.2, 30000: 1.2, 32000: -1.4, 37000: -7.2},
+    36: {10000: 25.4, 16250: 15.6, 20000: 9.8, 23000: 5.1, 25000: 2.1, 30000: -4.6, 32000: -7.0, 37000: -12.4},
+    34: {10000: 18.0, 16250: 8.8, 20000: 3.3, 23000: -1.2, 25000: -4.0, 30000: -10.3, 32000: -12.6, 37000: -17.7},
+    33: {10000: 14.3, 16250: 5.4, 20000: 0, 23000: -4.3, 25000: -7.0, 30000: -13.2, 32000: -15.4, 37000: -20.4},
+    32: {10000: 10.6, 16250: 1.9, 20000: -3.3, 23000: -7.4, 25000: -10.1, 30000: -16.0, 32000: -18.2, 37000: -23.0},
+    30: {10000: 3.2, 16250: -4.9, 20000: -9.8, 23000: -13.4, 25000: -16.2, 30000: -21.7, 32000: -23.8, 37000: -28.3},
+    28: {10000: -4.1, 16250: -11.7, 20000: -16.3, 23000: -19.4, 25000: -22.3, 30000: -27.5, 32000: -29.3, 37000: -33.6},
+    23: {10000: -22.6, 16250: -28.9, 20000: -32.6, 23000: -35.6, 25000: -37.5, 30000: -41.8, 32000: -43.3, 37000: -46.8},
+  },
+};
+
+function linearInterp(x, xs, ys) {
+  if (x <= xs[0]) return ys[0];
+  if (x >= xs[xs.length - 1]) return ys[ys.length - 1];
+  for (let i = 0; i < xs.length - 1; i++) {
+    if (x >= xs[i] && x <= xs[i + 1]) {
+      const t = (x - xs[i]) / (xs[i + 1] - xs[i]);
+      return ys[i] + t * (ys[i + 1] - ys[i]);
+    }
+  }
+  return ys[ys.length - 1];
+}
+
+function costCgtRate(newRatePct) {
+  if (newRatePct === 33) return 0;
+  const rates = Object.keys(CGT_RATE_DATA).map(Number).sort((a, b) => a - b);
+  const vals = rates.map(r => CGT_RATE_DATA[r]);
+  return Math.round(linearInterp(newRatePct, rates, vals) * 10) / 10;
+}
+
+function costCgtEntrepreneur(newLimitM) {
+  if (newLimitM <= 1) return 0;
+  const limits = CGT_ENTREPRENEUR_LIMIT_DATA.map(p => p[0]);
+  const costs = CGT_ENTREPRENEUR_LIMIT_DATA.map(p => p[1]);
+  return Math.round(linearInterp(newLimitM, limits, costs) * 10) / 10;
+}
+
+function costCatRate(newRatePct) {
+  if (newRatePct === 33) return 0;
+  const rates = Object.keys(CAT_RATE_DATA).map(Number).sort((a, b) => a - b);
+  const vals = rates.map(r => CAT_RATE_DATA[r]);
+  return Math.round(linearInterp(newRatePct, rates, vals) * 10) / 10;
+}
+
+function costCatRelief(type, newPct) {
+  if (newPct >= 90) return 0;
+  const data = type === 'agricultural' ? CAT_AGRICULTURAL_RELIEF_DATA : CAT_BUSINESS_RELIEF_DATA;
+  const pcts = Object.keys(data).map(Number).sort((a, b) => a - b);
+  const vals = pcts.map(p => data[p]);
+  return Math.round(linearInterp(newPct, pcts, vals) * 10) / 10;
+}
+
+let cgtRateChartInstance = null;
+let catRateChartInstance = null;
+
+function cgtRateUpdate() {
+  const rate = parseInt(document.getElementById('cgt_rate').value);
+  document.getElementById('cgt_rate_disp').textContent = rate + '%';
+  const cost = costCgtRate(rate);
+  const el = document.getElementById('cgt_rate_result');
+  if (rate === 33) { el.innerHTML = '<div class="info-box">No change from current rate.</div>'; return; }
+  const direction = cost > 0 ? 'Cost' : 'Yield';
+  const cls = cost > 0 ? 'warning-box' : 'success-box';
+  el.innerHTML = `<div class="${cls}"><strong>${direction}:</strong> ${fmtM(Math.abs(cost))} full year (rate ${rate}% vs 33%)</div>`;
+}
+
+function cgtEntUpdate() {
+  const limit = parseFloat(document.getElementById('cgt_ent_limit').value);
+  document.getElementById('cgt_ent_limit_disp').textContent = '\u20AC' + limit + 'm';
+  const cost = costCgtEntrepreneur(limit);
+  const el = document.getElementById('cgt_ent_result');
+  if (limit <= 1) { el.innerHTML = '<div class="info-box">No change from current limit (\u20AC1m).</div>'; return; }
+  el.innerHTML = `<div class="warning-box"><strong>Cost:</strong> ${fmtM(cost)} full year (limit \u20AC${limit}m vs \u20AC1m)</div>`;
+}
+
+function catRateUpdate() {
+  const rate = parseInt(document.getElementById('cat_rate').value);
+  document.getElementById('cat_rate_disp').textContent = rate + '%';
+  const cost = costCatRate(rate);
+  const el = document.getElementById('cat_rate_result');
+  if (rate === 33) { el.innerHTML = '<div class="info-box">No change from current rate.</div>'; return; }
+  const direction = cost > 0 ? 'Cost' : 'Yield';
+  const cls = cost > 0 ? 'warning-box' : 'success-box';
+  el.innerHTML = `<div class="${cls}"><strong>${direction}:</strong> ${fmtM(Math.abs(cost))} full year (rate ${rate}% vs 33%)</div>`;
+}
+
+function catThresholdUpdate() {
+  const group = document.getElementById('cat_group').value;
+  const rate = parseInt(document.getElementById('cat_matrix_rate').value);
+  const matrix = CAT_THRESHOLD_MATRIX[group];
+  const el = document.getElementById('cat_threshold_table');
+
+  if (!matrix[rate]) { el.innerHTML = '<div class="info-box">Rate not available in matrix.</div>'; return; }
+
+  const thresholds = Object.keys(matrix[rate]).map(Number).sort((a, b) => a - b);
+  const currentThreshold = group === 'A' ? 400000 : group === 'B' ? 40000 : 20000;
+
+  let html = '<table class="data"><tr><th>Threshold</th><th class="num">Full Year (\u20ACm)</th><th>Impact</th></tr>';
+  for (const t of thresholds) {
+    const cost = matrix[rate][t];
+    const cls = cost > 0 ? 'color:#e74c3c' : cost < 0 ? 'color:#27ae60' : '';
+    const label = cost > 0 ? 'Cost' : cost < 0 ? 'Yield' : 'Neutral';
+    const highlight = (t === currentThreshold && rate === 33) ? ' style="background:#e8f5f1;font-weight:600"' : '';
+    html += `<tr${highlight}><td>\u20AC${t.toLocaleString()}</td><td class="num" style="${cls}">${cost > 0 ? '+' : ''}${cost.toFixed(1)}</td><td style="${cls}">${label}</td></tr>`;
+  }
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function catReliefUpdate() {
+  const agriPct = parseInt(document.getElementById('cat_agri_relief').value);
+  const bizPct = parseInt(document.getElementById('cat_biz_relief').value);
+  document.getElementById('cat_agri_relief_disp').textContent = agriPct + '%';
+  document.getElementById('cat_biz_relief_disp').textContent = bizPct + '%';
+
+  const agriYield = costCatRelief('agricultural', agriPct);
+  const bizYield = costCatRelief('business', bizPct);
+  const totalYield = Math.round((agriYield + bizYield) * 10) / 10;
+
+  const el = document.getElementById('cat_relief_result');
+  if (agriPct >= 90 && bizPct >= 90) { el.innerHTML = '<div class="info-box">No change from current relief levels (90%).</div>'; return; }
+
+  let html = '<table class="data"><tr><th>Relief</th><th class="num">New Level</th><th class="num">Yield (\u20ACm)</th></tr>';
+  if (agriPct < 90) html += `<tr><td>Agricultural</td><td class="num">${agriPct}%</td><td class="num" style="color:#27ae60">${fmtM(agriYield)}</td></tr>`;
+  if (bizPct < 90) html += `<tr><td>Business</td><td class="num">${bizPct}%</td><td class="num" style="color:#27ae60">${fmtM(bizYield)}</td></tr>`;
+  html += `<tr class="total"><td>Total</td><td></td><td class="num" style="color:#27ae60">${fmtM(totalYield)}</td></tr>`;
+  html += '</table>';
+  el.innerHTML = html;
+}
+
+function buildCgtSensitivity() {
+  const rates = [28, 30, 31, 32, 34, 35, 38];
+  let html = '<table class="data"><tr><th>Rate</th><th class="num">Full Year (\u20ACm)</th><th>Impact</th></tr>';
+  for (const r of rates) {
+    const cost = costCgtRate(r);
+    const cls = cost > 0 ? 'color:#e74c3c' : 'color:#27ae60';
+    const label = cost > 0 ? 'Cost' : 'Yield';
+    html += `<tr><td>${r}%</td><td class="num" style="${cls}">${cost > 0 ? '+' : ''}${cost.toFixed(1)}</td><td style="${cls}">${label}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('cgt_sensitivity_table').innerHTML = html;
+
+  // Chart
+  const allRates = [28, 30, 31, 32, 33, 34, 35, 38];
+  const costs = allRates.map(r => costCgtRate(r));
+  const colors = costs.map(c => c >= 0 ? '#e74c3c' : '#27ae60');
+
+  if (cgtRateChartInstance) cgtRateChartInstance.destroy();
+  cgtRateChartInstance = new Chart(document.getElementById('cgtRateChart'), {
+    type: 'bar',
+    data: {
+      labels: allRates.map(r => r + '%'),
+      datasets: [{label: 'Full Year Cost (\u20ACm)', data: costs, backgroundColor: colors}],
+    },
+    options: {
+      responsive: true,
+      plugins: {legend: {display: false}, title: {display: true, text: 'CGT Rate Change: Exchequer Impact (\u20ACm)'}},
+      scales: {y: {title: {display: true, text: '\u20ACm (negative = yield)'}}},
+    },
+  });
+}
+
+function buildCatSensitivity() {
+  const rates = [23, 28, 30, 32, 34, 36, 38, 43];
+  let html = '<table class="data"><tr><th>Rate</th><th class="num">Full Year (\u20ACm)</th><th>Impact</th></tr>';
+  for (const r of rates) {
+    const cost = costCatRate(r);
+    const cls = cost > 0 ? 'color:#e74c3c' : 'color:#27ae60';
+    const label = cost > 0 ? 'Cost' : 'Yield';
+    html += `<tr><td>${r}%</td><td class="num" style="${cls}">${cost > 0 ? '+' : ''}${cost.toFixed(1)}</td><td style="${cls}">${label}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('cat_sensitivity_table').innerHTML = html;
+
+  // Chart
+  const allRates = [23, 28, 30, 32, 33, 34, 36, 38, 43];
+  const costs = allRates.map(r => costCatRate(r));
+  const colors = costs.map(c => c >= 0 ? '#e74c3c' : '#27ae60');
+
+  if (catRateChartInstance) catRateChartInstance.destroy();
+  catRateChartInstance = new Chart(document.getElementById('catRateChart'), {
+    type: 'bar',
+    data: {
+      labels: allRates.map(r => r + '%'),
+      datasets: [{label: 'Full Year Cost (\u20ACm)', data: costs, backgroundColor: colors}],
+    },
+    options: {
+      responsive: true,
+      plugins: {legend: {display: false}, title: {display: true, text: 'CAT Rate Change: Exchequer Impact (\u20ACm)'}},
+      scales: {y: {title: {display: true, text: '\u20ACm (negative = yield)'}}},
+    },
+  });
+}
+
+// ============================================================
 // INIT
 // ============================================================
 
@@ -1668,6 +2009,13 @@ creditExplUpdate();
 buildCreditAllTable();
 idxUpdate();
 buildDistTab();
+cgtRateUpdate();
+cgtEntUpdate();
+catRateUpdate();
+catThresholdUpdate();
+catReliefUpdate();
+buildCgtSensitivity();
+buildCatSensitivity();
 </script>
 </body>
 </html>
